@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import type { Task } from '../../types';
 import {
     format,
@@ -19,6 +19,7 @@ import {
     getWeek,
     max,
     min,
+    addDays,
 } from 'date-fns';
 
 interface CalendarViewProps {
@@ -38,19 +39,32 @@ interface TaskWithDates extends Task {
 
 interface TaskSegment {
     task: TaskWithDates;
-    startCol: number; // 0-6 for day of week
-    endCol: number;   // 0-6 for day of week
-    isStart: boolean; // Is this the start of the task?
-    isEnd: boolean;   // Is this the end of the task?
-    lane: number;     // Vertical position (row within the task area)
+    startCol: number;
+    endCol: number;
+    isStart: boolean;
+    isEnd: boolean;
+    lane: number;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate, onTasksReorder }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('month');
-    const [draggingTask, setDraggingTask] = useState<Task | null>(null);
-    const [dragOverInfo, setDragOverInfo] = useState<{ taskId: string; position: 'before' | 'after' } | null>(null);
+
+    // Dragging task (for HTML5 drag and drop - move to any cell)
+    const [draggingTask, setDraggingTask] = useState<Task | TaskWithDates | null>(null);
+
+    // Resize state (for edge dragging only)
+    const [resizeState, setResizeState] = useState<{
+        taskId: string;
+        mode: 'resize-start' | 'resize-end';
+        initialX: number;
+        initialStart: Date;
+        initialEnd: Date;
+        currentDaysDelta: number;
+    } | null>(null);
+
+    const calendarGridRef = useRef<HTMLDivElement>(null);
 
     // Navigation
     const next = () => {
@@ -95,7 +109,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
 
         const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-        // Group days into weeks
         const weeks: Date[][] = [];
         for (let i = 0; i < days.length; i += 7) {
             weeks.push(days.slice(i, i + 7));
@@ -121,7 +134,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         }
     }, [currentDate, viewMode, currentWeek]);
 
-    // Weekday Headers
     const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
 
     // Tasks with valid dates
@@ -146,19 +158,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         return tasks.filter(task => !task.startDate);
     }, [tasks]);
 
-    // Calculate task segments for each week (for spanning bars)
+    // Calculate task segments for each week
     const getTaskSegmentsForWeek = useCallback((week: Date[]): TaskSegment[] => {
         const weekStart = week[0];
         const weekEnd = week[6];
         const segments: TaskSegment[] = [];
 
         tasksWithDates.forEach(task => {
-            // Check if task overlaps with this week
             if (task.taskEnd < weekStart || task.taskStart > weekEnd) {
-                return; // No overlap
+                return;
             }
 
-            // Calculate the visible portion of the task in this week
             const visibleStart = max([task.taskStart, weekStart]);
             const visibleEnd = min([task.taskEnd, weekEnd]);
 
@@ -171,22 +181,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 endCol,
                 isStart: isSameDay(task.taskStart, visibleStart),
                 isEnd: isSameDay(task.taskEnd, visibleEnd),
-                lane: 0, // Will be calculated
+                lane: 0,
             });
         });
 
-        // Sort by start date, then by duration (longer first)
+        // Sort by start date (earlier first), then by end date (earlier first)
         segments.sort((a, b) => {
-            if (a.startCol !== b.startCol) return a.startCol - b.startCol;
-            const aDuration = a.endCol - a.startCol;
-            const bDuration = b.endCol - b.startCol;
-            return bDuration - aDuration;
+            // First, compare by actual task start date
+            const startDiff = a.task.taskStart.getTime() - b.task.taskStart.getTime();
+            if (startDiff !== 0) return startDiff;
+            // If start dates are the same, earlier end date comes first
+            return a.task.taskEnd.getTime() - b.task.taskEnd.getTime();
         });
 
-        // Assign lanes (greedy algorithm)
-        const lanes: number[][] = []; // lanes[lane] = array of endCols occupied
+        // Assign lanes
+        const lanes: number[][] = [];
         segments.forEach(segment => {
-            // Find first lane where this segment fits
             let assignedLane = 0;
             for (let lane = 0; lane < lanes.length; lane++) {
                 const conflicts = lanes[lane].some(endCol => segment.startCol <= endCol);
@@ -202,21 +212,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         });
 
         return segments;
-    }, [tasksWithDates]);
+    }, [tasksWithDates, tasks]);
 
     // Color palette for tasks
     const taskColors = [
-        '#8B5CF6', // Purple
-        '#3B82F6', // Blue
-        '#10B981', // Green
-        '#F59E0B', // Amber
-        '#EF4444', // Red
-        '#EC4899', // Pink
-        '#06B6D4', // Cyan
-        '#F97316', // Orange
+        '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B',
+        '#EF4444', '#EC4899', '#06B6D4', '#F97316',
     ];
 
-    // Get consistent color for a task based on its ID
     const getTaskColor = (taskId: string) => {
         let hash = 0;
         for (let i = 0; i < taskId.length; i++) {
@@ -225,136 +228,310 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         return taskColors[Math.abs(hash) % taskColors.length];
     };
 
-    // Header title based on view mode
     const headerTitle = viewMode === 'month'
         ? format(currentDate, 'yyyy年M月')
         : `${format(currentWeek[0], 'yyyy年M月d日')} 〜 ${format(currentWeek[6], 'M月d日')}`;
 
-    // Handle task reorder via drag
-    const handleTaskDragStart = (e: React.DragEvent, task: Task) => {
+    // Handle drag start for task bar (HTML5 drag for moving)
+    const handleTaskBarDragStart = useCallback((
+        e: React.DragEvent,
+        task: TaskWithDates
+    ) => {
+        setDraggingTask(task);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', task.id);
-        setDraggingTask(task);
-    };
+        e.dataTransfer.setData('application/task-duration', String(differenceInDays(task.taskEnd, task.taskStart)));
 
-    const handleTaskDragOver = (e: React.DragEvent, task: Task, position: 'before' | 'after') => {
+        // Create a custom drag image (optional, improves UX)
+        const dragImage = document.createElement('div');
+        dragImage.textContent = task.title;
+        dragImage.style.cssText = 'position: absolute; top: -1000px; padding: 4px 8px; background: #3B82F6; color: white; border-radius: 4px; font-size: 12px;';
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 0, 0);
+        setTimeout(() => document.body.removeChild(dragImage), 0);
+    }, []);
+
+    // Handle resize start (mouse drag for edges)
+    const handleResizeStart = useCallback((
+        e: React.MouseEvent,
+        task: TaskWithDates,
+        mode: 'resize-start' | 'resize-end'
+    ) => {
         e.preventDefault();
         e.stopPropagation();
-        if (draggingTask && draggingTask.id !== task.id) {
-            setDragOverInfo({ taskId: task.id, position });
-        }
-    };
+        setResizeState({
+            taskId: task.id,
+            mode,
+            initialX: e.clientX,
+            initialStart: task.taskStart,
+            initialEnd: task.taskEnd,
+            currentDaysDelta: 0,
+        });
+    }, []);
 
-    const handleTaskDrop = (e: React.DragEvent, targetTask: Task, position: 'before' | 'after') => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!draggingTask || draggingTask.id === targetTask.id || !onTasksReorder) {
-            setDraggingTask(null);
-            setDragOverInfo(null);
-            return;
-        }
+    // Calculate target date from mouse position
+    const getDateFromMousePosition = useCallback((e: MouseEvent): Date | null => {
+        if (!calendarGridRef.current) return null;
 
-        const newTasks = [...tasks];
-        const dragIndex = newTasks.findIndex(t => t.id === draggingTask.id);
-        const targetIndex = newTasks.findIndex(t => t.id === targetTask.id);
+        const gridRect = calendarGridRef.current.getBoundingClientRect();
 
-        if (dragIndex === -1 || targetIndex === -1) {
-            setDraggingTask(null);
-            setDragOverInfo(null);
-            return;
-        }
+        if (viewMode === 'month') {
+            // Month view: need to account for week number column (40px) and calculate row
+            const gridLeft = gridRect.left + 40; // Skip week number column
+            const gridWidth = gridRect.width - 40;
+            const dayWidth = gridWidth / 7;
 
-        // Remove dragged task
-        const [removed] = newTasks.splice(dragIndex, 1);
+            // Find the week rows container
+            const weekRowsContainer = calendarGridRef.current.querySelector('div[style*="overflow: auto"]');
+            if (!weekRowsContainer) return null;
 
-        // Calculate new index
-        let insertIndex = targetIndex;
-        if (dragIndex < targetIndex) {
-            insertIndex = position === 'after' ? targetIndex : targetIndex - 1;
+            const containerRect = weekRowsContainer.getBoundingClientRect();
+            const scrollTop = (weekRowsContainer as HTMLElement).scrollTop;
+            const relativeY = e.clientY - containerRect.top + scrollTop;
+
+            // Find which week row we're in by checking accumulated heights
+            const weekRows = weekRowsContainer.querySelectorAll(':scope > div');
+            let accumulatedHeight = 0;
+            let weekIndex = 0;
+
+            for (let i = 0; i < weekRows.length; i++) {
+                const rowHeight = (weekRows[i] as HTMLElement).offsetHeight;
+                if (relativeY < accumulatedHeight + rowHeight) {
+                    weekIndex = i;
+                    break;
+                }
+                accumulatedHeight += rowHeight;
+                weekIndex = i;
+            }
+
+            // Calculate day index within the week
+            const relativeX = e.clientX - gridLeft;
+            const dayIndex = Math.floor(relativeX / dayWidth);
+            const clampedDayIndex = Math.max(0, Math.min(6, dayIndex));
+            const clampedWeekIndex = Math.max(0, Math.min(weeks.length - 1, weekIndex));
+
+            if (weeks[clampedWeekIndex]) {
+                return weeks[clampedWeekIndex][clampedDayIndex];
+            }
         } else {
-            insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
+            // Week view: simpler calculation
+            const dayWidth = gridRect.width / 7;
+            const relativeX = e.clientX - gridRect.left;
+            const dayIndex = Math.floor(relativeX / dayWidth);
+            const clampedDayIndex = Math.max(0, Math.min(6, dayIndex));
+            return currentWeek[clampedDayIndex];
         }
 
-        newTasks.splice(insertIndex, 0, removed);
-        onTasksReorder(newTasks);
+        return null;
+    }, [viewMode, weeks, currentWeek]);
 
+    // Handle mouse move for resizing
+    useEffect(() => {
+        if (!resizeState || !calendarGridRef.current) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const targetDate = getDateFromMousePosition(e);
+            if (!targetDate) return;
+
+            let daysDelta: number;
+            if (resizeState.mode === 'resize-start') {
+                daysDelta = differenceInDays(targetDate, resizeState.initialStart);
+            } else {
+                daysDelta = differenceInDays(targetDate, resizeState.initialEnd);
+            }
+
+            if (daysDelta !== resizeState.currentDaysDelta) {
+                setResizeState(prev => prev ? { ...prev, currentDaysDelta: daysDelta } : null);
+            }
+        };
+
+        const handleMouseUp = () => {
+            if (resizeState.currentDaysDelta !== 0 && onTaskUpdate) {
+                let newStart = resizeState.initialStart;
+                let newEnd = resizeState.initialEnd;
+
+                if (resizeState.mode === 'resize-start') {
+                    newStart = addDays(resizeState.initialStart, resizeState.currentDaysDelta);
+                    if (newStart > resizeState.initialEnd) {
+                        newStart = resizeState.initialEnd;
+                    }
+                } else if (resizeState.mode === 'resize-end') {
+                    newEnd = addDays(resizeState.initialEnd, resizeState.currentDaysDelta);
+                    if (newEnd < resizeState.initialStart) {
+                        newEnd = resizeState.initialStart;
+                    }
+                }
+
+                onTaskUpdate(resizeState.taskId, {
+                    startDate: format(newStart, 'yyyy-MM-dd'),
+                    dueDate: format(newEnd, 'yyyy-MM-dd'),
+                });
+            }
+            setResizeState(null);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [resizeState, onTaskUpdate, getDateFromMousePosition]);
+
+    // Handle drop on calendar cell
+    const handleDropOnCell = useCallback((e: React.DragEvent, targetDate: Date) => {
+        e.preventDefault();
+        if (!draggingTask || !onTaskUpdate) return;
+
+        const durationStr = e.dataTransfer.getData('application/task-duration');
+        const duration = durationStr ? parseInt(durationStr, 10) : 0;
+
+        const newStartDate = format(targetDate, 'yyyy-MM-dd');
+        const newEndDate = duration > 0 ? format(addDays(targetDate, duration), 'yyyy-MM-dd') : newStartDate;
+
+        onTaskUpdate(draggingTask.id, {
+            startDate: newStartDate,
+            dueDate: newEndDate,
+        });
         setDraggingTask(null);
-        setDragOverInfo(null);
-    };
+    }, [draggingTask, onTaskUpdate]);
 
-    const handleDragEnd = () => {
+    // Handle drop on undated area (remove dates)
+    const handleDropOnUndated = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        if (!draggingTask || !onTaskUpdate) return;
+
+        onTaskUpdate(draggingTask.id, {
+            startDate: undefined,
+            dueDate: undefined,
+        });
         setDraggingTask(null);
-        setDragOverInfo(null);
-    };
+    }, [draggingTask, onTaskUpdate]);
 
-    // Render a task bar segment
-    const renderTaskSegment = (segment: TaskSegment, weekIndex: number) => {
+
+    // Render task bar segment
+    const renderTaskSegment = (segment: TaskSegment, weekIndex: number, isWeekView: boolean = false) => {
         const { task, startCol, endCol, isStart, isEnd, lane } = segment;
         const taskColor = getTaskColor(task.id);
-        const spanWidth = endCol - startCol + 1;
 
-        // Calculate position (percentage based)
-        const leftPercent = (startCol / 7) * 100;
+        const isResizing = resizeState?.taskId === task.id;
+        const daysDelta = isResizing ? resizeState.currentDaysDelta : 0;
+        const isDraggingThis = draggingTask?.id === task.id;
+
+        // Calculate adjusted positions based on resize
+        let adjustedStartCol = startCol;
+        let adjustedEndCol = endCol;
+
+        if (isResizing) {
+            if (resizeState.mode === 'resize-start') {
+                adjustedStartCol = Math.min(startCol + daysDelta, endCol);
+            } else if (resizeState.mode === 'resize-end') {
+                adjustedEndCol = Math.max(endCol + daysDelta, startCol);
+            }
+        }
+
+        const spanWidth = adjustedEndCol - adjustedStartCol + 1;
+        const leftPercent = (adjustedStartCol / 7) * 100;
         const widthPercent = (spanWidth / 7) * 100;
 
-        const isDraggingThis = draggingTask?.id === task.id;
-        const showDropBefore = dragOverInfo?.taskId === task.id && dragOverInfo.position === 'before';
-        const showDropAfter = dragOverInfo?.taskId === task.id && dragOverInfo.position === 'after';
+        const topOffset = isWeekView ? 60 : 44;
+        const laneHeight = isWeekView ? 32 : 26;
+        const barHeight = isWeekView ? 28 : 22;
 
         return (
             <div
                 key={`${task.id}-${weekIndex}`}
-                draggable
-                onDragStart={(e) => handleTaskDragStart(e, task)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
-                    handleTaskDragOver(e, task, e.clientY < midY ? 'before' : 'after');
-                }}
-                onDragLeave={() => setDragOverInfo(null)}
-                onDrop={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
-                    handleTaskDrop(e, task, e.clientY < midY ? 'before' : 'after');
-                }}
-                onClick={() => onTaskClick?.(task)}
+                draggable={!isResizing}
+                onDragStart={(e) => handleTaskBarDragStart(e, task)}
+                onDragEnd={() => setDraggingTask(null)}
                 style={{
                     position: 'absolute',
                     left: `calc(${leftPercent}% + 4px)`,
                     width: `calc(${widthPercent}% - 8px)`,
-                    top: `${44 + lane * 26}px`,
-                    height: '22px',
+                    top: `${topOffset + lane * laneHeight}px`,
+                    height: `${barHeight}px`,
                     backgroundColor: taskColor,
                     borderRadius: isStart && isEnd ? '6px' : isStart ? '6px 0 0 6px' : isEnd ? '0 6px 6px 0' : '0',
                     display: 'flex',
                     alignItems: 'center',
-                    paddingLeft: isStart ? '8px' : '4px',
-                    paddingRight: isEnd ? '8px' : '4px',
-                    cursor: 'grab',
+                    cursor: isResizing ? 'ew-resize' : 'grab',
                     opacity: isDraggingThis ? 0.5 : 1,
-                    zIndex: 10,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                    transition: 'opacity 0.15s ease',
-                    borderTop: showDropBefore ? '2px solid #fff' : 'none',
-                    borderBottom: showDropAfter ? '2px solid #fff' : 'none',
-                    marginTop: showDropBefore ? '-2px' : '0',
+                    zIndex: isResizing || isDraggingThis ? 100 : 10,
+                    boxShadow: isResizing ? '0 4px 12px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.2)',
+                    transition: isResizing ? 'none' : 'box-shadow 0.15s ease',
+                    overflow: 'hidden',
                 }}
                 title={task.title}
+                onClick={(e) => {
+                    if (!isResizing && !isDraggingThis) {
+                        e.stopPropagation();
+                        onTaskClick?.(task);
+                    }
+                }}
             >
+                {/* Left resize handle */}
                 {isStart && (
-                    <span
+                    <div
+                        onMouseDown={(e) => handleResizeStart(e, task, 'resize-start')}
                         style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            color: '#1e293b',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            position: 'absolute',
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: '10px',
+                            cursor: 'ew-resize',
+                            zIndex: 2,
                         }}
-                    >
-                        {task.title}
-                    </span>
+                    />
+                )}
+
+                {/* Center content */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: isStart ? '10px' : '0',
+                        right: isEnd ? '10px' : '0',
+                        top: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        paddingLeft: isStart ? '4px' : '8px',
+                        paddingRight: isEnd ? '4px' : '8px',
+                        pointerEvents: 'none',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {isStart && (
+                        <span
+                            style={{
+                                fontSize: isWeekView ? '12px' : '11px',
+                                fontWeight: 500,
+                                color: '#1e293b',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {task.title}
+                        </span>
+                    )}
+                </div>
+
+                {/* Right resize handle */}
+                {isEnd && (
+                    <div
+                        onMouseDown={(e) => handleResizeStart(e, task, 'resize-end')}
+                        style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: '10px',
+                            cursor: 'ew-resize',
+                            zIndex: 2,
+                        }}
+                    />
                 )}
             </div>
         );
@@ -397,52 +574,88 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                     {headerTitle}
                 </h2>
 
-                {/* Undated Tasks Section */}
-                {undatedTasks.length > 0 && (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            flex: 1,
-                            overflow: 'hidden',
-                            padding: '4px 12px',
-                            backgroundColor: theme.buttonBg,
-                            borderRadius: '22px',
-                            height: '44px',
-                        }}
-                    >
-                        {undatedTasks.map(task => {
-                            const taskColor = getTaskColor(task.id);
-                            return (
-                                <div
-                                    key={task.id}
-                                    draggable
-                                    onDragStart={(e) => {
-                                        setDraggingTask(task);
-                                        e.dataTransfer.effectAllowed = 'move';
-                                    }}
-                                    onDragEnd={() => setDraggingTask(null)}
-                                    onClick={() => onTaskClick?.(task)}
-                                    style={{
-                                        fontSize: '12px',
-                                        padding: '6px 12px',
-                                        backgroundColor: isDarkMode ? `${taskColor}30` : `${taskColor}20`,
-                                        color: taskColor,
-                                        borderRadius: '14px',
-                                        whiteSpace: 'nowrap',
-                                        cursor: 'grab',
-                                        fontWeight: '500',
-                                        flexShrink: 0,
-                                    }}
-                                    title={`${task.title} - ドラッグしてカレンダーにドロップ`}
-                                >
-                                    {task.title}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                {/* Undated Tasks Section - horizontally scrollable, also drop target */}
+                <div
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.style.backgroundColor = isDarkMode ? '#4B5563' : '#D1D5DB';
+                    }}
+                    onDragLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = theme.buttonBg;
+                    }}
+                    onDrop={(e) => {
+                        e.currentTarget.style.backgroundColor = theme.buttonBg;
+                        handleDropOnUndated(e);
+                    }}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        backgroundColor: theme.buttonBg,
+                        borderRadius: '22px',
+                        height: '44px',
+                        padding: '0 4px',
+                        transition: 'background-color 0.15s ease',
+                    }}
+                >
+                    {undatedTasks.length > 0 ? (
+                        <div
+                            style={{
+                                display: 'flex',
+                                gap: '6px',
+                                overflowX: 'auto',
+                                padding: '4px 8px',
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: `${theme.borderStrong} transparent`,
+                            }}
+                        >
+                            {undatedTasks.map(task => {
+                                const taskColor = getTaskColor(task.id);
+                                const isDraggingThis = draggingTask?.id === task.id;
+                                return (
+                                    <div
+                                        key={task.id}
+                                        draggable
+                                        onDragStart={(e) => {
+                                            setDraggingTask(task);
+                                            e.dataTransfer.effectAllowed = 'move';
+                                            e.dataTransfer.setData('text/plain', task.id);
+                                        }}
+                                        onDragEnd={() => setDraggingTask(null)}
+                                        onClick={() => onTaskClick?.(task)}
+                                        style={{
+                                            fontSize: '12px',
+                                            padding: '6px 12px',
+                                            backgroundColor: isDarkMode ? `${taskColor}30` : `${taskColor}20`,
+                                            color: taskColor,
+                                            borderRadius: '14px',
+                                            whiteSpace: 'nowrap',
+                                            cursor: 'grab',
+                                            fontWeight: '500',
+                                            flexShrink: 0,
+                                            opacity: isDraggingThis ? 0.5 : 1,
+                                        }}
+                                        title={`${task.title} - ドラッグしてカレンダーにドロップ`}
+                                    >
+                                        {task.title}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div
+                            style={{
+                                padding: '4px 12px',
+                                fontSize: '12px',
+                                color: theme.textMuted,
+                            }}
+                        >
+                            ここにドロップで日付解除
+                        </div>
+                    )}
+                </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                     {/* View Mode Toggle */}
@@ -574,7 +787,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             </div>
 
             {/* Calendar Grid */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div ref={calendarGridRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {/* Weekday Headers */}
                 <div
                     style={{
@@ -584,7 +797,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                         backgroundColor: theme.headerBg,
                     }}
                 >
-                    {/* Empty cell for week number column (month view only) */}
                     {viewMode === 'month' && <div style={{ padding: '12px 8px' }}></div>}
                     {weekDays.map((day, i) => (
                         <div
@@ -637,7 +849,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                         {weekNum}
                                     </div>
 
-                                    {/* Days Grid (for backgrounds and dates) */}
+                                    {/* Days Grid */}
                                     {week.map((day, dayIndex) => {
                                         const isCurrentMonth = isSameMonth(day, currentDate);
                                         const isToday = isSameDay(day, new Date());
@@ -660,29 +872,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                     e.currentTarget.style.backgroundColor = isCurrentMonth ? theme.cardBg : theme.bg;
                                                 }}
                                                 onDrop={(e) => {
-                                                    e.preventDefault();
                                                     e.currentTarget.style.backgroundColor = isCurrentMonth ? theme.cardBg : theme.bg;
-                                                    if (draggingTask && !draggingTask.startDate && onTaskUpdate) {
-                                                        // Only set date for undated tasks dropped on cells
-                                                        onTaskUpdate(draggingTask.id, { startDate: format(day, 'yyyy-MM-dd') });
-                                                    }
-                                                    setDraggingTask(null);
+                                                    handleDropOnCell(e, day);
                                                 }}
                                                 style={{
                                                     display: 'flex',
                                                     flexDirection: 'column',
+                                                    justifyContent: 'flex-start',
+                                                    alignItems: 'stretch',
                                                     padding: '8px',
                                                     borderRight: dayIndex < 6 ? `1px solid ${theme.border}` : 'none',
                                                     backgroundColor: isCurrentMonth ? theme.cardBg : theme.bg,
                                                     transition: 'background-color 0.15s ease',
+                                                    minHeight: '100%',
                                                 }}
                                             >
-                                                {/* Date Label */}
                                                 <div style={{
                                                     display: 'flex',
                                                     justifyContent: 'flex-start',
                                                     alignItems: 'center',
                                                     height: '36px',
+                                                    flexShrink: 0,
                                                 }}>
                                                     {isToday ? (
                                                         <span
@@ -721,7 +931,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                         );
                                     })}
 
-                                    {/* Task Bars (positioned absolutely over the days) */}
+                                    {/* Task Bars */}
                                     <div
                                         style={{
                                             position: 'absolute',
@@ -729,11 +939,38 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                             left: '40px',
                                             right: 0,
                                             bottom: 0,
-                                            pointerEvents: 'none',
+                                            pointerEvents: 'auto',
+                                        }}
+                                        onDragOver={(e) => {
+                                            // Allow drop events to pass through to cells
+                                            if (draggingTask) {
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                        onDrop={(e) => {
+                                            // Calculate which day was dropped on based on mouse position
+                                            if (!draggingTask || !onTaskUpdate) return;
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const dayWidth = rect.width / 7;
+                                            const dayIndex = Math.floor(x / dayWidth);
+                                            const targetDay = week[Math.max(0, Math.min(6, dayIndex))];
+
+                                            const durationStr = e.dataTransfer.getData('application/task-duration');
+                                            const duration = durationStr ? parseInt(durationStr, 10) : 0;
+
+                                            const newStartDate = format(targetDay, 'yyyy-MM-dd');
+                                            const newEndDate = duration > 0 ? format(addDays(targetDay, duration), 'yyyy-MM-dd') : newStartDate;
+
+                                            onTaskUpdate(draggingTask.id, {
+                                                startDate: newStartDate,
+                                                dueDate: newEndDate,
+                                            });
+                                            setDraggingTask(null);
                                         }}
                                     >
-                                        <div style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto' }}>
-                                            {segments.map(segment => renderTaskSegment(segment, weekIndex))}
+                                        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                                            {segments.map(segment => renderTaskSegment(segment, weekIndex, false))}
                                         </div>
                                     </div>
                                 </div>
@@ -744,148 +981,145 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
 
                 {/* Week View */}
                 {viewMode === 'week' && (
-                    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(7, 1fr)',
-                                flex: 1,
-                            }}
-                        >
-                            {currentWeek.map((day, dayIndex) => {
-                                const isToday = isSameDay(day, new Date());
-                                const dayNum = format(day, 'd');
-                                const dayLabel = `${dayNum}日`;
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        {(() => {
+                            const segments = getTaskSegmentsForWeek(currentWeek);
+                            const maxLane = segments.length > 0 ? Math.max(...segments.map(s => s.lane)) : -1;
+                            const contentHeight = Math.max(300, 70 + (maxLane + 1) * 32);
 
-                                // Get tasks for this day
-                                const dayTasks = tasksWithDates.filter(task => {
-                                    return day >= task.taskStart && day <= task.taskEnd;
-                                });
+                            return (
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(7, 1fr)',
+                                        flex: 1,
+                                        position: 'relative',
+                                        minHeight: `${contentHeight}px`,
+                                    }}
+                                >
+                                    {currentWeek.map((day, dayIndex) => {
+                                        const isToday = isSameDay(day, new Date());
+                                        const dayNum = format(day, 'd');
+                                        const dayLabel = `${dayNum}日`;
 
-                                let textColor = theme.text;
-                                if (dayIndex === 0) textColor = theme.sunday;
-                                if (dayIndex === 6) textColor = theme.saturday;
+                                        let textColor = theme.text;
+                                        if (dayIndex === 0) textColor = theme.sunday;
+                                        if (dayIndex === 6) textColor = theme.saturday;
 
-                                return (
+                                        return (
+                                            <div
+                                                key={day.toISOString()}
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    e.currentTarget.style.backgroundColor = isDarkMode ? '#374151' : '#E5E7EB';
+                                                }}
+                                                onDragLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = theme.cardBg;
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.currentTarget.style.backgroundColor = theme.cardBg;
+                                                    handleDropOnCell(e, day);
+                                                }}
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'flex-start',
+                                                    alignItems: 'stretch',
+                                                    padding: '12px',
+                                                    borderRight: dayIndex < 6 ? `1px solid ${theme.border}` : 'none',
+                                                    backgroundColor: theme.cardBg,
+                                                    transition: 'background-color 0.15s ease',
+                                                    minHeight: '100%',
+                                                }}
+                                            >
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'flex-start',
+                                                    alignItems: 'center',
+                                                    height: '44px',
+                                                    marginBottom: '8px',
+                                                    flexShrink: 0,
+                                                }}>
+                                                    {isToday ? (
+                                                        <span
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                minWidth: '44px',
+                                                                height: '44px',
+                                                                padding: '0 12px',
+                                                                backgroundColor: theme.today,
+                                                                borderRadius: '22px',
+                                                                color: '#FFFFFF',
+                                                                fontSize: '22px',
+                                                                fontWeight: '700',
+                                                            }}
+                                                        >
+                                                            {dayLabel}
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                height: '44px',
+                                                                color: textColor,
+                                                                fontSize: '22px',
+                                                                fontWeight: '700',
+                                                            }}
+                                                        >
+                                                            {dayLabel}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Task Bars for Week View */}
                                     <div
-                                        key={day.toISOString()}
-                                        onDragOver={(e) => {
-                                            e.preventDefault();
-                                            e.currentTarget.style.backgroundColor = isDarkMode ? '#374151' : '#E5E7EB';
+                                        style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            pointerEvents: 'auto',
                                         }}
-                                        onDragLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = theme.cardBg;
+                                        onDragOver={(e) => {
+                                            if (draggingTask) {
+                                                e.preventDefault();
+                                            }
                                         }}
                                         onDrop={(e) => {
-                                            e.preventDefault();
-                                            e.currentTarget.style.backgroundColor = theme.cardBg;
-                                            if (draggingTask && !draggingTask.startDate && onTaskUpdate) {
-                                                onTaskUpdate(draggingTask.id, { startDate: format(day, 'yyyy-MM-dd') });
-                                            }
+                                            if (!draggingTask || !onTaskUpdate) return;
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const x = e.clientX - rect.left;
+                                            const dayWidth = rect.width / 7;
+                                            const dayIndex = Math.floor(x / dayWidth);
+                                            const targetDay = currentWeek[Math.max(0, Math.min(6, dayIndex))];
+
+                                            const durationStr = e.dataTransfer.getData('application/task-duration');
+                                            const duration = durationStr ? parseInt(durationStr, 10) : 0;
+
+                                            const newStartDate = format(targetDay, 'yyyy-MM-dd');
+                                            const newEndDate = duration > 0 ? format(addDays(targetDay, duration), 'yyyy-MM-dd') : newStartDate;
+
+                                            onTaskUpdate(draggingTask.id, {
+                                                startDate: newStartDate,
+                                                dueDate: newEndDate,
+                                            });
                                             setDraggingTask(null);
                                         }}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            padding: '12px',
-                                            borderRight: dayIndex < 6 ? `1px solid ${theme.border}` : 'none',
-                                            backgroundColor: theme.cardBg,
-                                            overflow: 'auto',
-                                            minHeight: '300px',
-                                            transition: 'background-color 0.15s ease',
-                                        }}
                                     >
-                                        {/* Date Header */}
-                                        <div style={{
-                                            display: 'flex',
-                                            justifyContent: 'flex-start',
-                                            alignItems: 'center',
-                                            height: '44px',
-                                            marginBottom: '12px',
-                                        }}>
-                                            {isToday ? (
-                                                <span
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        minWidth: '44px',
-                                                        height: '44px',
-                                                        padding: '0 12px',
-                                                        backgroundColor: theme.today,
-                                                        borderRadius: '22px',
-                                                        color: '#FFFFFF',
-                                                        fontSize: '22px',
-                                                        fontWeight: '700',
-                                                    }}
-                                                >
-                                                    {dayLabel}
-                                                </span>
-                                            ) : (
-                                                <span
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        height: '44px',
-                                                        color: textColor,
-                                                        fontSize: '22px',
-                                                        fontWeight: '700',
-                                                    }}
-                                                >
-                                                    {dayLabel}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Tasks */}
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            {dayTasks.map(task => {
-                                                const taskColor = getTaskColor(task.id);
-                                                const isDraggingThis = draggingTask?.id === task.id;
-                                                const showDropBefore = dragOverInfo?.taskId === task.id && dragOverInfo.position === 'before';
-                                                const showDropAfter = dragOverInfo?.taskId === task.id && dragOverInfo.position === 'after';
-
-                                                return (
-                                                    <div
-                                                        key={task.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleTaskDragStart(e, task)}
-                                                        onDragEnd={handleDragEnd}
-                                                        onDragOver={(e) => {
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            const midY = rect.top + rect.height / 2;
-                                                            handleTaskDragOver(e, task, e.clientY < midY ? 'before' : 'after');
-                                                        }}
-                                                        onDragLeave={() => setDragOverInfo(null)}
-                                                        onDrop={(e) => {
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            const midY = rect.top + rect.height / 2;
-                                                            handleTaskDrop(e, task, e.clientY < midY ? 'before' : 'after');
-                                                        }}
-                                                        onClick={() => onTaskClick?.(task)}
-                                                        style={{
-                                                            fontSize: '13px',
-                                                            padding: '8px 12px',
-                                                            backgroundColor: taskColor,
-                                                            color: '#1e293b',
-                                                            borderRadius: '12px',
-                                                            cursor: 'grab',
-                                                            fontWeight: '500',
-                                                            opacity: isDraggingThis ? 0.5 : 1,
-                                                            borderTop: showDropBefore ? '2px solid #fff' : 'none',
-                                                            borderBottom: showDropAfter ? '2px solid #fff' : 'none',
-                                                        }}
-                                                        title={task.title}
-                                                    >
-                                                        {task.title}
-                                                    </div>
-                                                );
-                                            })}
+                                        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                                            {segments.map(segment => renderTaskSegment(segment, 0, true))}
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
