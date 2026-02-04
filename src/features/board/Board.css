@@ -1,0 +1,171 @@
+.board-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.back-btn {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-right: 1rem;
+}
+
+.back-btn:hover {
+    color: white;
+}
+
+.add-task-form {
+    margin-bottom: 1.5rem;
+}
+
+.task-input {
+    width: 100%;
+    background-color: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 1rem;
+}
+
+.task-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.board-columns {
+    display: flex;
+    gap: 1rem;
+    overflow-x: hidden;
+    padding-bottom: 1rem;
+    height: 100%;
+}
+
+.board-column {
+    flex: 1;
+    min-width: 300px;
+    background-color: rgba(30, 41, 59, 0.5);
+    /* Slate 800 / 0.5 */
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.column-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.task-count {
+    font-size: 0.75rem;
+    opacity: 0.5;
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+    /* Take remaining space instead of fixed 100% */
+    min-height: 0;
+    /* Required for Firefox flex scrolling */
+    overflow-y: auto;
+    padding-right: 4px;
+    /* Space for scrollbar */
+}
+
+/* Custom Scrollbar Styling */
+.board-container .task-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.board-container .task-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.board-container .task-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+}
+
+.board-container .task-list::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.task-card {
+    cursor: grab;
+    position: relative;
+    transition: border-color 0.2s;
+}
+
+.task-card:hover {
+    border-color: var(--color-text-muted);
+}
+
+.task-card:active {
+    cursor: grabbing;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.priority-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    flex-shrink: 0;
+}
+
+.task-description {
+    font-size: 0.75rem;
+    /* text-xs */
+    color: var(--color-text-muted);
+    margin-top: 0.25rem;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+
+.task-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.task-card:hover .task-actions {
+    opacity: 1;
+}
+
+.action-btn {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.action-btn:hover {
+    color: white;
+}
+
+.action-spacer {
+    margin-left: auto;
+}

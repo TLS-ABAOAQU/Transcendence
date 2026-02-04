@@ -1,0 +1,266 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 3806 >>
+stream
+BT
+/F2 18.00 Tf
+1 0 0 1 43.20 748.80 Tm
+(Personal Project Manager) Tj
+ET
+BT
+/F2 12.00 Tf
+1 0 0 1 43.20 719.85 Tm
+(What it is) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 704.85 Tm
+(Personal Project Manager is a single-page React app built with Vite for organizing personal) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 691.20 Tm
+(projects and tasks.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 674.40 Tm
+(It stores project data in browser localStorage and offers board, calendar, and timeline) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 660.75 Tm
+(views for planning.) Tj
+ET
+BT
+/F2 12.00 Tf
+1 0 0 1 43.20 639.75 Tm
+(Who it is for) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 624.75 Tm
+(People managing personal goals and tasks who want a lightweight, local-first planner.) Tj
+ET
+BT
+/F2 12.00 Tf
+1 0 0 1 43.20 603.75 Tm
+(What it does) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 588.75 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 588.75 Tm
+(Create, edit, and delete projects with a name, theme color, and optional deadline.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 573.00 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 573.00 Tm
+(Reorder projects via drag-and-drop on the dashboard.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 557.25 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 557.25 Tm
+(Create, edit, and delete tasks with title, description, priority, URLs, start date, and) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 543.60 Tm
+(due date.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 527.85 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 527.85 Tm
+(Move tasks across status columns \(todo, in-progress, done\) and reorder within a column) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 514.20 Tm
+(via drag-and-drop.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 498.45 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 498.45 Tm
+(Switch between board, calendar \(month/week\), and timeline \(week/month/3 months\) views.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 482.70 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 482.70 Tm
+(Adjust task start and due dates directly on the timeline by resizing task bars.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 466.95 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 466.95 Tm
+(Undo and redo changes with keyboard shortcuts \(Ctrl/Cmd+Z, Shift+Z, or Ctrl/Cmd+Y\).) Tj
+ET
+BT
+/F2 12.00 Tf
+1 0 0 1 43.20 445.95 Tm
+(How it works) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 430.95 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 430.95 Tm
+(UI: App chooses Dashboard or Board based on active project selection.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 415.20 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 415.20 Tm
+(State: ProjectProvider context manages projects, tasks, active project, and undo/redo) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 401.55 Tm
+(history.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 385.80 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 385.80 Tm
+(Persistence: Projects stored in localStorage key "ppm-projects"; active project id) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 372.15 Tm
+(stored in "ppm-active-project".) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 356.40 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 356.40 Tm
+(Features: Dashboard for project CRUD and ordering; Board for task CRUD and DnD;) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 342.75 Tm
+(CalendarView and TimelineView for date-based views \(date-fns\).) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 327.00 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 327.00 Tm
+(Drag-and-drop: @dnd-kit handles project and task reordering and status changes.) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 311.25 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 311.25 Tm
+(Backend/API: Not found in repo.) Tj
+ET
+BT
+/F2 12.00 Tf
+1 0 0 1 43.20 290.25 Tm
+(How to run) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 275.25 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 275.25 Tm
+(npm install) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 43.20 259.50 Tm
+(- ) Tj
+ET
+BT
+/F1 10.50 Tf
+1 0 0 1 55.80 259.50 Tm
+(npm run dev) Tj
+ET
+
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000004109 00000 n 
+0000004179 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+4254
+%%EOF
