@@ -1,36 +1,19 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { format, addDays, addMonths, subMonths, differenceInDays, startOfDay, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragOverlay,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../../types';
 
 interface TimelineViewProps {
     tasks: Task[];
     onTaskClick: (task: Task) => void;
     onTaskUpdate?: (taskId: string, updates: { startDate?: string; dueDate?: string }) => void;
-    onTasksReorder?: (tasks: Task[]) => void;
+    taskColorMap: Record<string, string>;
+    taskBoardIndexMap: Record<string, number>;
 }
 
 type ViewRange = 'week' | 'month' | '3months';
 
-// Sortable task row component
-interface SortableTaskRowProps {
+// Task row component
+interface TaskRowProps {
     task: Task & { taskStart: Date | null; taskEnd: Date | null };
     position: { left: number; width: number } | null;
     theme: {
@@ -55,11 +38,10 @@ interface SortableTaskRowProps {
     onTaskUpdate?: (taskId: string, updates: { startDate?: string; dueDate?: string }) => void;
     handleResizeStart: (e: React.MouseEvent, task: Task & { taskStart: Date | null; taskEnd: Date | null }, edge: 'left' | 'right' | 'move') => void;
     justFinishedResizing: React.MutableRefObject<boolean>;
-    getStatusColor: (status: string) => string;
-    getPriorityColor: (priority: string) => string;
+    barColor: string;
 }
 
-const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
+const TaskRow: React.FC<TaskRowProps> = ({
     task,
     position,
     theme,
@@ -70,35 +52,17 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
     onTaskUpdate,
     handleResizeStart,
     justFinishedResizing,
-    getStatusColor,
-    getPriorityColor,
+    barColor,
 }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: task.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-    };
-
     return (
         <div
-            ref={setNodeRef}
             style={{
-                ...style,
                 display: 'flex',
                 borderBottom: `1px solid ${theme.border}`,
                 minHeight: '50px',
             }}
         >
-            {/* Task Name with drag handle */}
+            {/* Task Name */}
             <div
                 style={{
                     width: '200px',
@@ -107,47 +71,17 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
                     borderRight: `1px solid ${theme.border}`,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
                     position: 'sticky',
                     left: 0,
-                    backgroundColor: theme.bg,
+                    backgroundColor: barColor,
                     zIndex: 5,
                 }}
             >
-                {/* Drag handle */}
-                <div
-                    {...attributes}
-                    {...listeners}
-                    style={{
-                        cursor: 'grab',
-                        padding: '4px',
-                        marginLeft: '-4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: theme.textMuted,
-                    }}
-                    title="Drag to reorder"
-                >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="9" cy="6" r="2" />
-                        <circle cx="15" cy="6" r="2" />
-                        <circle cx="9" cy="12" r="2" />
-                        <circle cx="15" cy="12" r="2" />
-                        <circle cx="9" cy="18" r="2" />
-                        <circle cx="15" cy="18" r="2" />
-                    </svg>
-                </div>
-                <div style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: getStatusColor(task.status),
-                    flexShrink: 0,
-                }} />
                 <span
                     style={{
-                        color: theme.text,
-                        fontSize: '13px',
+                        color: '#000000',
+                        fontSize: '15px',
+                        fontWeight: 600,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -156,9 +90,10 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
                     }}
                     onClick={() => onTaskClick(task)}
                 >
+                    {task.starred && <span style={{ marginRight: '4px' }}>{'\u2605'}</span>}
                     {task.title}
                     {!task.taskStart && !task.taskEnd && (
-                        <span style={{ color: theme.textMuted, fontSize: '11px', marginLeft: '6px' }}>
+                        <span style={{ fontSize: '11px', marginLeft: '6px', opacity: 0.6 }}>
                             (No dates set)
                         </span>
                     )}
@@ -205,7 +140,7 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
                             left: `${position.left + 2}px`,
                             width: `${position.width}px`,
                             height: '28px',
-                            backgroundColor: getPriorityColor(task.priority),
+                            backgroundColor: barColor,
                             borderRadius: '6px',
                             display: 'flex',
                             alignItems: 'center',
@@ -256,9 +191,9 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
                             }}
                         >
                             <span style={{
-                                fontSize: '11px',
+                                fontSize: '20px',
                                 fontWeight: 500,
-                                color: '#1e293b',
+                                color: '#000000',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
@@ -266,6 +201,7 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
                                 padding: '0 4px',
                                 pointerEvents: 'none',
                             }}>
+                                {task.starred && <span style={{ marginRight: '2px' }}>{'\u2605'}</span>}
                                 {task.title}
                             </span>
                         </div>
@@ -297,37 +233,10 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
     );
 };
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, onTasksReorder }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap }) => {
     const [isDarkMode] = useState(true);
-    const [viewRange, setViewRange] = useState<ViewRange>('month');
-
-    // DnD state for vertical reordering
-    const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-    const dndSensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    );
-
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveTaskId(event.active.id as string);
-    };
-
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveTaskId(null);
-
-        if (over && active.id !== over.id && onTasksReorder) {
-            const oldIndex = tasks.findIndex(t => t.id === active.id);
-            const newIndex = tasks.findIndex(t => t.id === over.id);
-
-            if (oldIndex !== -1 && newIndex !== -1) {
-                const newTasks = arrayMove(tasks, oldIndex, newIndex);
-                onTasksReorder(newTasks);
-            }
-        }
-    };
-
-    const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
+    const [viewRange, setViewRange] = useState<ViewRange>('week');
+    const [hideDone, setHideDone] = useState(false);
 
     const theme = useMemo(() => ({
         bg: isDarkMode ? '#0f172a' : '#ffffff',
@@ -407,6 +316,18 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
     // Scroll container ref
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    // Track visible year/month label from leftmost visible date
+    const [headerLabel, setHeaderLabel] = useState('');
+
+    const updateHeaderLabel = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container || days.length === 0) return;
+        const scrollLeft = container.scrollLeft;
+        const dayIndex = Math.max(0, Math.min(Math.floor(scrollLeft / dayWidth), days.length - 1));
+        const visibleDate = days[dayIndex];
+        setHeaderLabel(`${visibleDate.getFullYear()}年${visibleDate.getMonth() + 1}月`);
+    }, [days, dayWidth]);
+
     // Scroll to today on initial load or when view changes
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -417,43 +338,58 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         const scrollPosition = Math.max(0, (daysFromStart - 3) * dayWidth);
 
         container.scrollLeft = scrollPosition;
-    }, [dateRange, dayWidth]);
+        // Update header label after scroll position is set
+        requestAnimationFrame(() => updateHeaderLabel());
+    }, [dateRange, dayWidth, updateHeaderLabel]);
 
-    // Process all tasks - those with dates get bars, those without just show in the list
-    const timelineTasks = useMemo(() => {
-        return tasks.map(task => {
-            const taskStart = task.startDate ? parseISO(task.startDate) : null;
-            const taskEnd = task.dueDate ? parseISO(task.dueDate) : taskStart;
-            return { ...task, taskStart, taskEnd };
-        });
-    }, [tasks]);
-
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'high': return 'var(--color-priority-high)';
-            case 'medium': return 'var(--color-priority-medium)';
-            case 'low': return 'var(--color-priority-low)';
-            default: return theme.primary;
-        }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'done': return '#22c55e';
-            case 'in-progress': return '#3b82f6';
-            default: return theme.textMuted;
-        }
-    };
-
-    // Navigate by scrolling
-    const navigate = (direction: 'prev' | 'next') => {
+    // Update header label on scroll
+    useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
+        const handleScroll = () => updateHeaderLabel();
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [updateHeaderLabel]);
 
-        const scrollAmount = viewRange === 'week' ? 7 * dayWidth : viewRange === 'month' ? 30 * dayWidth : 90 * dayWidth;
-        const newScrollLeft = container.scrollLeft + (direction === 'next' ? scrollAmount : -scrollAmount);
-        container.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
-    };
+    // Process and sort tasks:
+    // 1. startDate ascending (earliest first, no date last)
+    // 2. dueDate descending (latest first, no date last)
+    // 3. 進捗度 descending (DONE > IN_PROGRESS > STANDBY > TODO)
+    // 4. 優先度 ascending (board position index, lower = higher priority)
+    const timelineTasks = useMemo(() => {
+        const statusOrder: Record<string, number> = { 'done': 4, 'in-progress': 3, 'standby': 2, 'todo': 1 };
+        return tasks
+            .filter(task => !hideDone || task.status !== 'done')
+            .map(task => {
+                const taskStart = task.startDate ? parseISO(task.startDate) : null;
+                const taskEnd = task.dueDate ? parseISO(task.dueDate) : taskStart;
+                return { ...task, taskStart, taskEnd };
+            })
+            .sort((a, b) => {
+                // 1. startDate ascending (no date goes to bottom)
+                if (a.taskStart && b.taskStart) {
+                    const diff = a.taskStart.getTime() - b.taskStart.getTime();
+                    if (diff !== 0) return diff;
+                } else if (a.taskStart && !b.taskStart) return -1;
+                else if (!a.taskStart && b.taskStart) return 1;
+
+                // 2. dueDate descending (later due date first; no date goes to bottom)
+                const aEnd = a.dueDate ? parseISO(a.dueDate) : null;
+                const bEnd = b.dueDate ? parseISO(b.dueDate) : null;
+                if (aEnd && bEnd) {
+                    const diff = bEnd.getTime() - aEnd.getTime();
+                    if (diff !== 0) return diff;
+                } else if (aEnd && !bEnd) return -1;
+                else if (!aEnd && bEnd) return 1;
+
+                // 3. 進捗度 descending (DONE > IN_PROGRESS > STANDBY > TODO)
+                const statusDiff = (statusOrder[b.status] || 0) - (statusOrder[a.status] || 0);
+                if (statusDiff !== 0) return statusDiff;
+
+                // 4. 優先度 ascending (board index: lower = higher priority = should be on top)
+                return (taskBoardIndexMap[a.id] ?? 999) - (taskBoardIndexMap[b.id] ?? 999);
+            });
+    }, [tasks, taskBoardIndexMap, hideDone]);
 
     // Go to today
     const goToToday = () => {
@@ -603,7 +539,24 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                 gap: '12px',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h2 style={{ margin: 0, color: theme.text, fontSize: '20px' }}>Timeline</h2>
+                    <h2 style={{ margin: 0, color: theme.text, fontSize: '26px' }}>Timeline</h2>
+                    <button
+                        onClick={() => setHideDone(!hideDone)}
+                        title={hideDone ? 'Show Done tasks' : 'Hide Done tasks'}
+                        style={{
+                            padding: '14px 26px',
+                            borderRadius: '30px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            fontWeight: 700,
+                            backgroundColor: hideDone ? theme.primary : theme.surface,
+                            color: hideDone ? '#fff' : theme.textMuted,
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        Done 非表示
+                    </button>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -611,85 +564,85 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                     <div style={{
                         display: 'flex',
                         backgroundColor: theme.surface,
-                        borderRadius: '20px',
+                        borderRadius: '30px',
                         padding: '4px',
+                        gap: '2px',
                     }}>
-                        {(['week', 'month', '3months'] as ViewRange[]).map((range) => (
+                        {([
+                            { range: 'week' as ViewRange, title: 'Week', icon: (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    <line x1="8" y1="11" x2="14" y2="11" /><line x1="11" y1="8" x2="11" y2="14" />
+                                </svg>
+                            )},
+                            { range: 'month' as ViewRange, title: 'Month', icon: (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                            )},
+                            { range: '3months' as ViewRange, title: '3 Months', icon: (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    <line x1="8" y1="11" x2="14" y2="11" />
+                                </svg>
+                            )},
+                        ]).map(({ range, title, icon }) => (
                             <button
                                 key={range}
                                 onClick={() => setViewRange(range)}
+                                title={title}
                                 style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '16px',
+                                    padding: '14px 26px',
+                                    borderRadius: '30px',
                                     border: 'none',
                                     cursor: 'pointer',
-                                    fontSize: '12px',
-                                    fontWeight: 500,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
                                     backgroundColor: viewRange === range ? theme.primary : 'transparent',
                                     color: viewRange === range ? '#fff' : theme.textMuted,
                                     transition: 'all 0.2s ease',
                                 }}
                             >
-                                {range === '3months' ? '3M' : range.charAt(0).toUpperCase() + range.slice(1)}
+                                {icon}
                             </button>
                         ))}
                     </div>
 
-                    {/* Navigation */}
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                            onClick={() => navigate('prev')}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: 'transparent',
-                                color: theme.text,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            ←
-                        </button>
-                        <button
-                            onClick={goToToday}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: 'transparent',
-                                color: theme.text,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Today
-                        </button>
-                        <button
-                            onClick={() => navigate('next')}
-                            style={{
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: 'transparent',
-                                color: theme.text,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            →
-                        </button>
-                    </div>
+                    {/* Today button */}
+                    <button
+                        onClick={goToToday}
+                        style={{
+                            padding: '14px 26px',
+                            borderRadius: '30px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            fontWeight: 700,
+                            backgroundColor: theme.primary,
+                            color: '#fff',
+                            transition: 'all 0.2s ease',
+                        }}
+                    >
+                        Today
+                    </button>
                 </div>
             </div>
 
             {/* Timeline Grid */}
             <div
                 ref={scrollContainerRef}
+                className="calendar-scroll-hide"
                 style={{
                     flex: 1,
                     overflow: 'auto',
+                    scrollbarWidth: 'none',
                     border: `1px solid ${theme.border}`,
                     borderRadius: '8px',
                     cursor: resizing ? 'ew-resize' : 'default',
-                }}
+                } as React.CSSProperties}
             >
                 <div style={{ minWidth: `${totalDays * dayWidth + 200}px` }}>
                     {/* Date Headers */}
@@ -714,7 +667,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                             backgroundColor: theme.surface,
                             zIndex: 11,
                         }}>
-                            Task
+                            {headerLabel || 'Task'}
                         </div>
 
                         {/* Date Headers */}
@@ -792,82 +745,27 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                             No tasks to display. Create a new task to see it on the timeline.
                         </div>
                     ) : (
-                        <DndContext
-                            sensors={dndSensors}
-                            collisionDetection={closestCenter}
-                            onDragStart={handleDragStart}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={timelineTasks.map(t => t.id)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                {timelineTasks.map((task) => {
-                                    const position = getTaskPosition(task);
-                                    return (
-                                        <SortableTaskRow
-                                            key={task.id}
-                                            task={task}
-                                            position={position}
-                                            theme={theme}
-                                            dayWidth={dayWidth}
-                                            days={days}
-                                            resizing={resizing}
-                                            onTaskClick={onTaskClick}
-                                            onTaskUpdate={onTaskUpdate}
-                                            handleResizeStart={handleResizeStart}
-                                            justFinishedResizing={justFinishedResizing}
-                                            getStatusColor={getStatusColor}
-                                            getPriorityColor={getPriorityColor}
-                                        />
-                                    );
-                                })}
-                            </SortableContext>
-                            <DragOverlay>
-                                {activeTask ? (
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            borderBottom: `1px solid ${theme.border}`,
-                                            minHeight: '50px',
-                                            backgroundColor: theme.bg,
-                                            opacity: 0.9,
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: '200px',
-                                                minWidth: '200px',
-                                                padding: '12px',
-                                                borderRight: `1px solid ${theme.border}`,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                backgroundColor: theme.bg,
-                                            }}
-                                        >
-                                            <div style={{
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%',
-                                                backgroundColor: getStatusColor(activeTask.status),
-                                                flexShrink: 0,
-                                            }} />
-                                            <span style={{
-                                                color: theme.text,
-                                                fontSize: '13px',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                            }}>
-                                                {activeTask.title}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </DragOverlay>
-                        </DndContext>
+                        <div>
+                            {timelineTasks.map((task) => {
+                                const position = getTaskPosition(task);
+                                return (
+                                    <TaskRow
+                                        key={task.id}
+                                        task={task}
+                                        position={position}
+                                        theme={theme}
+                                        dayWidth={dayWidth}
+                                        days={days}
+                                        resizing={resizing}
+                                        onTaskClick={onTaskClick}
+                                        onTaskUpdate={onTaskUpdate}
+                                        handleResizeStart={handleResizeStart}
+                                        justFinishedResizing={justFinishedResizing}
+                                        barColor={taskColorMap[task.id] || theme.primary}
+                                    />
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
             </div>

@@ -6,8 +6,8 @@ function App() {
   const { activeProjectId } = useProjects();
 
   return (
-    <div className="min-h-screen">
-      <main className="container mx-auto py-8">
+    <div style={{ minHeight: '100vh' }}>
+      <main className="container">
         {activeProjectId ? <Board /> : <Dashboard />}
       </main>
     </div>

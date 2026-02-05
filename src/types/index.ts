@@ -1,5 +1,12 @@
 export type Priority = 'low' | 'medium' | 'high';
-export type Status = 'todo' | 'in-progress' | 'done';
+export type Status = 'todo' | 'standby' | 'in-progress' | 'done';
+
+export interface ChecklistItem {
+    id: string;
+    text: string;
+    checked: boolean;
+    checkedAt?: number;
+}
 
 export interface Task {
     id: string;
@@ -11,6 +18,9 @@ export interface Task {
     url2?: string;
     startDate?: string;
     dueDate?: string;
+    starred?: boolean;
+    tags?: string[];
+    checklist?: ChecklistItem[];
     createdAt: number;
 }
 

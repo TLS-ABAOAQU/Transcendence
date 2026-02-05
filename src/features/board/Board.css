@@ -48,7 +48,7 @@
 
 .board-column {
     flex: 1;
-    min-width: 300px;
+    min-width: 0;
     background-color: rgba(30, 41, 59, 0.5);
     /* Slate 800 / 0.5 */
     border-radius: var(--radius-md);
@@ -107,6 +107,9 @@
     cursor: grab;
     position: relative;
     transition: border-color 0.2s;
+    padding-right: 0.75rem !important;
+    padding-top: 0.8em !important;
+    padding-bottom: 0.8em !important;
 }
 
 .task-card:hover {
@@ -124,11 +127,82 @@
     margin-bottom: 0.5rem;
 }
 
-.priority-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 9999px;
+.priority-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    border-radius: 4px 0 0 4px;
+}
+
+.task-card-content {
+    padding-left: 16px;
+}
+
+/* Star toggle on task cards */
+.star-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    line-height: 1;
+    padding: 2px;
     flex-shrink: 0;
+    color: #6B7280;
+    transition: color 0.15s ease;
+}
+
+.star-toggle:hover {
+    color: #FBBF24;
+}
+
+.task-card .star-toggle[title="Unstar"] {
+    color: #FBBF24;
+}
+
+/* Title-only normal mode cards */
+.task-card-title-only {
+    padding: 0 0.75rem 0 1.5rem !important;
+}
+
+.task-card-title-only .task-card-content {
+    display: flex;
+    align-items: center;
+}
+
+.task-card-title-only .task-header {
+    flex: 1;
+    align-items: center;
+    height: 2.6em;
+    margin: 0;
+    min-width: 0;
+}
+
+/* Compact mode cards */
+.task-card-compact {
+    padding: 0 0.75rem 0 1.5rem !important;
+}
+
+.task-card-compact .task-card-content {
+    display: flex;
+    align-items: center;
+}
+
+.task-card-compact .task-header {
+    flex: 1;
+    align-items: center;
+    height: 2.6em;
+    margin: 0;
+    min-width: 0;
+}
+
+.task-title-compact {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
 }
 
 .task-description {
@@ -168,4 +242,181 @@
 
 .action-spacer {
     margin-left: auto;
+}
+
+/* Tag chip styles */
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.tag-chip button {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.tag-chip button:hover {
+    color: white;
+}
+
+/* Tag suggestion dropdown */
+.tag-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tag-suggestion-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--color-text-main, #e2e8f0);
+}
+
+.tag-suggestion-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Checklist item styles */
+.checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    transition: opacity 0.15s ease;
+}
+
+.checklist-item.checked {
+    opacity: 0.6;
+}
+
+.checklist-item-text {
+    flex: 1;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+    padding: 2px 0;
+}
+
+.checklist-item.checked .checklist-item-text {
+    text-decoration: line-through;
+}
+
+.checklist-item-remove {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.checklist-item:hover .checklist-item-remove {
+    opacity: 1;
+}
+
+.checklist-item-remove:hover {
+    color: #f87171;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Save hint */
+.save-hint {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    align-self: center;
+}
+
+/* Compact mode toggle */
+.compact-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.compact-toggle-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.compact-toggle-track {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.compact-toggle-track.active {
+    background-color: var(--color-primary);
+}
+
+.compact-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+}
+
+.compact-toggle-track.active .compact-toggle-thumb {
+    transform: translateX(16px);
+}
+
+@keyframes toast-fade-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Tag chip (small - for task cards) */
+.tag-chip-sm {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 500;
+}
+
+/* Hide calendar scrollbar */
+.calendar-scroll-hide::-webkit-scrollbar {
+    display: none;
 }
