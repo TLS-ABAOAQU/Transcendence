@@ -31,7 +31,7 @@ const COLUMNS: { id: Status; title: string }[] = [
 ];
 
 export const Board: React.FC = () => {
-    const { projects, activeProjectId, setActiveProject, addTask, updateTask, deleteTask, reorderTasks, canUndo, canRedo } = useProjects();
+    const { projects, activeProjectId, setActiveProject, addTask, updateTask, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
     const project = projects.find((p) => p.id === activeProjectId);
     const [isAdding, setIsAdding] = useState(false);
 
@@ -203,6 +203,35 @@ export const Board: React.FC = () => {
         window.addEventListener('keydown', handleBoardUndoRedoToast);
         return () => window.removeEventListener('keydown', handleBoardUndoRedoToast);
     }, [showToast]);
+
+    // ESC / Backspace → navigate back to dashboard (when no modal is open)
+    useEffect(() => {
+        const handleBackNavigation = (e: KeyboardEvent) => {
+            // Skip if any modal is open
+            if (editingTaskRef.current || isAddingRef.current) return;
+            // Skip if modifier keys are held
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setActiveProject(null);
+                return;
+            }
+
+            if (e.key === 'Backspace') {
+                // Only trigger if no input/textarea is focused
+                const active = document.activeElement;
+                const isEditable = active instanceof HTMLInputElement ||
+                    active instanceof HTMLTextAreaElement ||
+                    (active instanceof HTMLElement && active.isContentEditable);
+                if (isEditable) return;
+                e.preventDefault();
+                setActiveProject(null);
+            }
+        };
+        window.addEventListener('keydown', handleBackNavigation);
+        return () => window.removeEventListener('keydown', handleBackNavigation);
+    }, [setActiveProject]);
 
     // Modal interaction refs
     const mouseDownInsideModal = useRef(false);
@@ -893,7 +922,7 @@ export const Board: React.FC = () => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center">
                             <button onClick={() => setActiveProject(null)} className="back-btn">
-                                ← Back
+                                ← Back  ⌫
                             </button>
                             <h1 className="text-xl">{project.name}</h1>
                         </div>
@@ -921,15 +950,12 @@ export const Board: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         {viewMode === 'board' && (
-                            <label className="compact-toggle">
-                                <span className="compact-toggle-label">Compact</span>
-                                <div
-                                    className={`compact-toggle-track ${compactMode ? 'active' : ''}`}
-                                    onClick={() => setCompactMode(!compactMode)}
-                                >
-                                    <div className="compact-toggle-thumb" />
-                                </div>
-                            </label>
+                            <button
+                                className={`compact-text-toggle ${compactMode ? 'active' : ''}`}
+                                onClick={() => setCompactMode(!compactMode)}
+                            >
+                                Compact
+                            </button>
                         )}
                         <button className="btn btn-primary" onClick={openNewTaskModal}>+ New Task</button>
                     </div>
@@ -1286,7 +1312,7 @@ export const Board: React.FC = () => {
                                                 value={editUrl2}
                                                 onChange={(e) => setEditUrl2(e.target.value)}
                                                 onKeyDown={handleUrl2KeyDown}
-                                                placeholder="https://example.com (optional)"
+                                                placeholder="https://example.com"
                                             />
                                         </div>
                                     </div>
@@ -1334,6 +1360,10 @@ export const Board: React.FC = () => {
                                 reorderTasks(project.id, newTasks);
                             }}
                             taskColorMap={taskColorMap}
+                            initialHideDone={project.viewSettings?.calendarHideDone ?? true}
+                            onHideDoneChange={(hideDone) => {
+                                updateViewSettings(project.id, { calendarHideDone: hideDone });
+                            }}
                         />
                     </div>
                 )}
@@ -1349,6 +1379,14 @@ export const Board: React.FC = () => {
                             }}
                             taskColorMap={taskColorMap}
                             taskBoardIndexMap={taskBoardIndexMap}
+                            initialHideDone={project.viewSettings?.timelineHideDone ?? true}
+                            onHideDoneChange={(hideDone) => {
+                                updateViewSettings(project.id, { timelineHideDone: hideDone });
+                            }}
+                            initialViewRange={project.viewSettings?.timelineViewRange ?? 'month'}
+                            onViewRangeChange={(range) => {
+                                updateViewSettings(project.id, { timelineViewRange: range });
+                            }}
                         />
                     </div>
                 )}
@@ -1510,7 +1548,7 @@ export const Board: React.FC = () => {
                                 {!compactMode && (
                                     <>
                                         {activeTask.dueDate && (
-                                            <div className="text-[10px] text-yellow-400 mb-1 font-mono">
+                                            <div style={{ fontSize: '10px' }} className="text-yellow-400 mb-1 font-mono">
                                                 Due: {activeTask.dueDate}
                                             </div>
                                         )}
@@ -1558,7 +1596,7 @@ export const Board: React.FC = () => {
             {toastMessage && (
                 <div style={{
                     position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-                    background: 'rgba(30, 30, 40, 0.92)', color: '#fff',
+                    background: 'rgba(30, 30, 40, 0.92)', color: 'rgba(255, 255, 255, 0.85)',
                     padding: '8px 20px', borderRadius: '8px', fontSize: '0.85rem',
                     fontWeight: 500, zIndex: 9999, pointerEvents: 'none',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)',

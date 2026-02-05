@@ -29,6 +29,12 @@ export interface Column {
     title: string;
 }
 
+export interface ViewSettings {
+    calendarHideDone?: boolean;
+    timelineHideDone?: boolean;
+    timelineViewRange?: 'week' | 'month' | '3months';
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -37,6 +43,7 @@ export interface Project {
     createdAt: number;
     startDate?: string;
     deadline?: string;
+    viewSettings?: ViewSettings;
 }
 
 export interface AppState {

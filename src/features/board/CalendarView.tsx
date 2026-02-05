@@ -26,6 +26,8 @@ interface CalendarViewProps {
     onTaskUpdate?: (taskId: string, updates: { startDate?: string; dueDate?: string }) => void;
     onTasksReorder?: (tasks: Task[]) => void;
     taskColorMap?: Record<string, string>;
+    initialHideDone?: boolean;
+    onHideDoneChange?: (hideDone: boolean) => void;
 }
 
 interface TaskWithDates extends Task {
@@ -42,8 +44,8 @@ interface TaskSegment {
     lane: number;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap }) => {
-    const [hideDone, setHideDone] = useState(true);
+export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, initialHideDone, onHideDoneChange }) => {
+    const [hideDone, setHideDone] = useState(initialHideDone ?? true);
     const [headerLabel, setHeaderLabel] = useState('');
 
     // Dragging task (for HTML5 drag and drop - move to any cell)
@@ -146,7 +148,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         bg: '#1F2937',
         cardBg: '#111827',
         headerBg: '#1F2937',
-        text: '#F9FAFB',
+        text: 'rgba(249, 250, 251, 0.85)',
         textMuted: '#9CA3AF',
         textFaded: '#6B7280',
         border: '#374151',
@@ -157,7 +159,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         surface: '#1e293b',
         sunday: '#EF4444',
         saturday: '#3B82F6',
-        today: '#EF4444',
+        today: '#8b5cf6',
         monthOdd: '#111827',   // Odd months (1,3,5,7,9,11) — darker
         monthEven: '#1a2332',  // Even months (2,4,6,8,10,12) — slightly lighter
     };
@@ -195,6 +197,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         return { allWeeks: weeks, todayWeekIndex: Math.max(todayIdx, 0) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Compute month info per week for watermark rendering
+    const monthWeekInfo = useMemo(() => {
+        // First pass: determine month for each week using Thursday
+        const weekMonths: { month: number; year: number }[] = allWeeks.map(week => {
+            const thu = week[3];
+            return { month: thu.getMonth(), year: thu.getFullYear() };
+        });
+
+        // Second pass: group consecutive weeks into month spans
+        const spans: { name: string; startWeek: number; endWeek: number }[] = [];
+        let currentKey = '';
+        weekMonths.forEach(({ month, year }, weekIndex) => {
+            const key = `${year}-${month}`;
+            if (key !== currentKey) {
+                if (spans.length > 0) spans[spans.length - 1].endWeek = weekIndex - 1;
+                const d = new Date(year, month, 1);
+                spans.push({ name: format(d, 'MMMM'), startWeek: weekIndex, endWeek: weekIndex });
+                currentKey = key;
+            }
+        });
+        if (spans.length > 0) spans[spans.length - 1].endWeek = allWeeks.length - 1;
+
+        // Build map: weekIndex -> { name, indexInMonth, totalWeeks }
+        const map = new Map<number, { name: string; indexInMonth: number; totalWeeks: number }>();
+        spans.forEach(span => {
+            const total = span.endWeek - span.startWeek + 1;
+            for (let i = span.startWeek; i <= span.endWeek; i++) {
+                map.set(i, { name: span.name, indexInMonth: i - span.startWeek, totalWeeks: total });
+            }
+        });
+        return map;
+    }, [allWeeks]);
 
     // Tasks with preview dates (applying resize delta or drag preview)
     const tasksWithPreviewDates = useMemo((): TaskWithDates[] => {
@@ -302,18 +337,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
     const updateHeaderLabel = useCallback(() => {
         const container = scrollContainerRef.current;
         if (!container || allWeeks.length === 0) return;
-        const scrollTop = container.scrollTop;
+        // Use center of visible area to determine month
+        const centerY = container.scrollTop + container.clientHeight / 2;
         const rows = container.querySelectorAll('[data-week-index]');
-        let topWeekIndex = 0;
+        let centerWeekIndex = 0;
         for (const row of rows) {
             const el = row as HTMLElement;
-            if (el.offsetTop + el.offsetHeight > scrollTop) {
-                topWeekIndex = parseInt(el.dataset.weekIndex || '0', 10);
+            if (el.offsetTop + el.offsetHeight > centerY) {
+                centerWeekIndex = parseInt(el.dataset.weekIndex || '0', 10);
                 break;
             }
         }
-        if (allWeeks[topWeekIndex]) {
-            const thu = allWeeks[topWeekIndex][4];
+        if (allWeeks[centerWeekIndex]) {
+            const thu = allWeeks[centerWeekIndex][4];
             setHeaderLabel(`${thu.getFullYear()}年${thu.getMonth() + 1}月`);
         }
     }, [allWeeks]);
@@ -696,23 +732,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             <div
                 style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '24px 32px', backgroundColor: theme.headerBg, gap: '16px',
+                    padding: '24px 32px', backgroundColor: theme.headerBg, gap: '16px', minHeight: '120px',
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h2 style={{ margin: 0, fontSize: '26px', color: theme.text, flexShrink: 0, minWidth: '180px' }}>
+                    <h2 style={{ margin: 0, fontSize: '42px', color: theme.text, flexShrink: 0, minWidth: '240px' }}>
                         {headerLabel}
                     </h2>
 
                     {/* Hide Done toggle */}
                     <button
-                        onClick={() => setHideDone(!hideDone)}
+                        onClick={() => { const newVal = !hideDone; setHideDone(newVal); onHideDoneChange?.(newVal); }}
                         title={hideDone ? 'Show Done tasks' : 'Hide Done tasks'}
                         style={{
-                            padding: '10px 26px', borderRadius: '30px', border: 'none',
+                            padding: '10px 26px', borderRadius: '30px',
+                            border: hideDone ? '1.5px solid transparent' : '1.5px solid rgba(255, 255, 255, 0.40)',
                             cursor: 'pointer', fontSize: '20px', fontWeight: 700,
                             backgroundColor: hideDone ? theme.primary : theme.surface,
-                            color: hideDone ? '#fff' : theme.textMuted,
+                            color: hideDone ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
                             transition: 'all 0.2s ease', flexShrink: 0,
                         }}
                     >
@@ -734,14 +771,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                     style={{
                         display: 'flex', alignItems: 'center', flex: 1, minWidth: 0,
                         overflow: 'hidden', backgroundColor: theme.buttonBg,
-                        borderRadius: '30px', padding: '4px 6px',
+                        borderRadius: '30px', padding: '0 6px',
+                        height: '60px',
                         transition: 'background-color 0.15s ease',
                     }}
                 >
                     {undatedTasks.length > 0 ? (
                         <div style={{
-                            display: 'flex', gap: '6px', overflowX: 'auto', padding: '4px 8px',
+                            display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 8px',
                             scrollbarWidth: 'thin', scrollbarColor: `${theme.borderStrong} transparent`,
+                            alignItems: 'center', height: '100%',
                         }}>
                             {undatedTasks.map(task => {
                                 const taskColor = getTaskColor(task.id);
@@ -779,7 +818,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                             })}
                         </div>
                     ) : (
-                        <div style={{ padding: '4px 12px', fontSize: '12px', color: theme.textMuted }}>
+                        <div style={{ padding: '4px 12px', fontSize: '20px', color: theme.textMuted }}>
                             ここにドロップで日付解除
                         </div>
                     )}
@@ -807,7 +846,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                     style={{
                         padding: '10px 26px', borderRadius: '30px', border: 'none',
                         cursor: 'pointer', fontSize: '20px', fontWeight: 700,
-                        backgroundColor: theme.primary, color: '#fff',
+                        backgroundColor: theme.primary, color: 'rgba(255, 255, 255, 0.85)',
                         flexShrink: 0,
                     }}
                 >
@@ -917,10 +956,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                     e.currentTarget.style.backgroundColor = '#374151';
                                                 }}
                                                 onDragLeave={(e) => {
-                                                    e.currentTarget.style.backgroundColor = dayBg;
+                                                    e.currentTarget.style.backgroundColor = isToday ? `${theme.today}20` : dayBg;
                                                 }}
                                                 onDrop={(e) => {
-                                                    e.currentTarget.style.backgroundColor = dayBg;
+                                                    e.currentTarget.style.backgroundColor = isToday ? `${theme.today}20` : dayBg;
                                                     if (draggingTask && onTaskUpdate) {
                                                         const durationStr = e.dataTransfer.getData('application/task-duration');
                                                         const duration = durationStr ? parseInt(durationStr, 10) : 0;
@@ -939,7 +978,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                     justifyContent: 'flex-start', alignItems: 'stretch',
                                                     padding: '8px',
                                                     borderRight: dayIndex < 6 ? `1px solid ${theme.border}` : 'none',
-                                                    backgroundColor: dayBg,
+                                                    backgroundColor: isToday ? `${theme.today}20` : dayBg,
                                                     transition: 'background-color 0.15s ease',
                                                     minHeight: '100%',
                                                 }}
@@ -1022,6 +1061,47 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                             {segments.map(segment => renderTaskSegment(segment, weekIndex))}
                                         </div>
                                     </div>
+                                    {/* Month name watermark */}
+                                    {(() => {
+                                        const info = monthWeekInfo.get(weekIndex);
+                                        if (!info) return null;
+                                        const { name, indexInMonth, totalWeeks } = info;
+                                        // Each row shows a clip of the full text, offset so it appears as one large text spanning all weeks
+                                        const totalHeight = totalWeeks * rowHeight;
+                                        const fontSize = Math.min(totalHeight * 0.6, 300);
+                                        const topOffset = -(indexInMonth * rowHeight) + (totalHeight - fontSize) / 2;
+                                        return (
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: '40px',
+                                                right: 0,
+                                                top: 0,
+                                                height: `${rowHeight}px`,
+                                                overflow: 'hidden',
+                                                pointerEvents: 'none',
+                                                userSelect: 'none',
+                                                zIndex: 2,
+                                            }}>
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: `${topOffset}px`,
+                                                    left: 0,
+                                                    right: 0,
+                                                    height: `${fontSize}px`,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: `${fontSize}px`,
+                                                    fontWeight: 900,
+                                                    color: 'rgba(255, 255, 255, 0.04)',
+                                                    lineHeight: 1,
+                                                    whiteSpace: 'nowrap',
+                                                }}>
+                                                    {name}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </React.Fragment>
                         );

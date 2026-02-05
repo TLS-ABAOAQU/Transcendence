@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
-import { format, addDays, addMonths, subMonths, differenceInDays, startOfDay, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addDays, addMonths, subMonths, differenceInDays, startOfDay, startOfMonth, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
 import type { Task } from '../../types';
 
 interface TimelineViewProps {
@@ -8,6 +8,10 @@ interface TimelineViewProps {
     onTaskUpdate?: (taskId: string, updates: { startDate?: string; dueDate?: string }) => void;
     taskColorMap: Record<string, string>;
     taskBoardIndexMap: Record<string, number>;
+    initialHideDone?: boolean;
+    onHideDoneChange?: (hideDone: boolean) => void;
+    initialViewRange?: ViewRange;
+    onViewRangeChange?: (range: ViewRange) => void;
 }
 
 type ViewRange = 'week' | 'month' | '3months';
@@ -31,6 +35,7 @@ interface TaskRowProps {
         taskId: string;
         edge: 'left' | 'right' | 'move';
         initialX: number;
+        initialScrollLeft: number;
         initialStart: Date;
         initialEnd: Date;
     } | null;
@@ -59,7 +64,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
             style={{
                 display: 'flex',
                 borderBottom: `1px solid ${theme.border}`,
-                minHeight: '50px',
+                minHeight: '58px',
             }}
         >
             {/* Task Name */}
@@ -80,7 +85,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                 <span
                     style={{
                         color: '#000000',
-                        fontSize: '15px',
+                        fontSize: '20px',
                         fontWeight: 600,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -92,11 +97,6 @@ const TaskRow: React.FC<TaskRowProps> = ({
                 >
                     {task.starred && <span style={{ marginRight: '4px' }}>{'\u2605'}</span>}
                     {task.title}
-                    {!task.taskStart && !task.taskEnd && (
-                        <span style={{ fontSize: '11px', marginLeft: '6px', opacity: 0.6 }}>
-                            (No dates set)
-                        </span>
-                    )}
                 </span>
             </div>
 
@@ -108,7 +108,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                 alignItems: 'center',
             }}>
                 {/* Day grid lines */}
-                <div style={{ display: 'flex', position: 'absolute', top: 0, bottom: 0 }}>
+                <div style={{ display: 'flex', position: 'absolute', top: 0, bottom: 0, zIndex: 1 }}>
                     {days.map((day, index) => {
                         const hasNoDate = !task.taskStart && !task.taskEnd;
                         return (
@@ -123,10 +123,10 @@ const TaskRow: React.FC<TaskRowProps> = ({
                                 style={{
                                     width: `${dayWidth}px`,
                                     borderRight: `1px solid ${theme.border}`,
-                                    backgroundColor: isSameDay(day, new Date()) ? `${theme.primary}10` : 'transparent',
+                                    backgroundColor: isSameDay(day, new Date()) ? `${theme.primary}10` : (day.getMonth() + 1) % 2 === 1 ? theme.monthOdd : theme.monthEven,
                                     cursor: hasNoDate ? 'pointer' : 'default',
                                 }}
-                                title={hasNoDate ? `Set start date to ${format(day, 'yyyy-MM-dd')}` : undefined}
+                                title={undefined}
                             />
                         );
                     })}
@@ -139,7 +139,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                             position: 'absolute',
                             left: `${position.left + 2}px`,
                             width: `${position.width}px`,
-                            height: '28px',
+                            height: '36px',
                             backgroundColor: barColor,
                             borderRadius: '6px',
                             display: 'flex',
@@ -148,8 +148,10 @@ const TaskRow: React.FC<TaskRowProps> = ({
                             boxShadow: resizing?.taskId === task.id
                                 ? '0 2px 8px rgba(0,0,0,0.3)'
                                 : '0 1px 3px rgba(0,0,0,0.2)',
-                            transition: resizing ? 'none' : 'transform 0.1s ease, box-shadow 0.1s ease',
+                            transition: resizing ? 'none' : 'transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease',
                             transform: resizing?.taskId === task.id ? 'scale(1.02)' : 'scale(1)',
+                            opacity: resizing?.taskId === task.id ? 0.5 : 1,
+                            zIndex: 3,
                         }}
                     >
                         {/* Left resize handle */}
@@ -192,7 +194,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                         >
                             <span style={{
                                 fontSize: '20px',
-                                fontWeight: 500,
+                                fontWeight: 600,
                                 color: '#000000',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -233,19 +235,22 @@ const TaskRow: React.FC<TaskRowProps> = ({
     );
 };
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap, initialHideDone, onHideDoneChange, initialViewRange, onViewRangeChange }) => {
     const [isDarkMode] = useState(true);
-    const [viewRange, setViewRange] = useState<ViewRange>('week');
-    const [hideDone, setHideDone] = useState(false);
+    const [viewRange, setViewRange] = useState<ViewRange>(initialViewRange ?? 'month');
+    const [hideDone, setHideDone] = useState(initialHideDone ?? true);
 
     const theme = useMemo(() => ({
         bg: isDarkMode ? '#0f172a' : '#ffffff',
         surface: isDarkMode ? '#1e293b' : '#f8fafc',
-        text: isDarkMode ? '#f8fafc' : '#0f172a',
+        text: isDarkMode ? 'rgba(248, 250, 252, 0.85)' : 'rgba(15, 23, 42, 0.85)',
         textMuted: isDarkMode ? '#94a3b8' : '#64748b',
         border: isDarkMode ? '#334155' : '#e2e8f0',
         primary: '#8b5cf6',
+        headerBg: isDarkMode ? '#1F2937' : '#f1f5f9',
         taskBg: isDarkMode ? '#334155' : '#e2e8f0',
+        monthOdd: isDarkMode ? '#111827' : '#f8fafc',
+        monthEven: isDarkMode ? '#1a2332' : '#f1f5f9',
     }), [isDarkMode]);
 
     // Fixed date range (±12 months from today), independent of task data
@@ -265,20 +270,46 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
     const startDate = dateRange.start;
 
+    // Compute month spans for background labels
+    const monthSpans = useMemo(() => {
+        if (days.length === 0) return [];
+        const spans: { month: number; year: number; name: string; startIndex: number; endIndex: number }[] = [];
+        let currentMonth = -1;
+        let currentYear = -1;
+        days.forEach((day, index) => {
+            const m = day.getMonth();
+            const y = day.getFullYear();
+            if (m !== currentMonth || y !== currentYear) {
+                if (spans.length > 0) {
+                    spans[spans.length - 1].endIndex = index - 1;
+                }
+                spans.push({ month: m, year: y, name: format(day, 'MMMM'), startIndex: index, endIndex: index });
+                currentMonth = m;
+                currentYear = y;
+            }
+        });
+        if (spans.length > 0) {
+            spans[spans.length - 1].endIndex = days.length - 1;
+        }
+        return spans;
+    }, [days]);
+
     // Configuration
-    const dayWidth = viewRange === 'week' ? 120 : viewRange === 'month' ? 40 : 20;
+    const dayWidth = viewRange === 'week' ? 170 : viewRange === 'month' ? 53 : 36;
 
     // Resize/drag state
     const [resizing, setResizing] = useState<{
         taskId: string;
         edge: 'left' | 'right' | 'move';
         initialX: number;
+        initialScrollLeft: number;
         initialStart: Date;
         initialEnd: Date;
     } | null>(null);
 
     // Track if we just finished resizing/dragging (to prevent click from opening modal)
     const justFinishedResizing = useRef(false);
+    const hasMovedDuringResize = useRef(false);
 
     // Scroll container ref
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -368,15 +399,19 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
     // Track visible year/month label from leftmost visible date
     const [headerLabel, setHeaderLabel] = useState('');
+    const [headerMonthEn, setHeaderMonthEn] = useState('');
 
     const updateHeaderLabel = useCallback(() => {
         const container = scrollContainerRef.current;
         if (!container || days.length === 0) return;
         const scrollLeft = container.scrollLeft;
-        const dayIndex = Math.max(0, Math.min(Math.floor(scrollLeft / dayWidth), days.length - 1));
+        // Add offset to avoid showing previous month when scrolled to exact boundary
+        const offset = viewRange === 'week' ? 4.8 : viewRange === 'month' ? 15.7 : 22.7;
+        const dayIndex = Math.max(0, Math.min(Math.floor((scrollLeft + dayWidth * offset) / dayWidth), days.length - 1));
         const visibleDate = days[dayIndex];
         setHeaderLabel(`${visibleDate.getFullYear()}年${visibleDate.getMonth() + 1}月`);
-    }, [days, dayWidth]);
+        setHeaderMonthEn(format(visibleDate, 'MMMM'));
+    }, [days, dayWidth, viewRange]);
 
     // Scroll to today on initial load or when view changes
     useEffect(() => {
@@ -453,6 +488,62 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
     };
 
+    // Scroll to previous month's first day
+    const scrollToPrevMonth = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container || days.length === 0) return;
+        const scrollLeft = container.scrollLeft;
+        const dayIndex = Math.max(0, Math.floor(scrollLeft / dayWidth));
+        const currentDate = days[dayIndex];
+
+        // Find first day of current month in days array
+        const firstOfCurrentMonth = startOfMonth(currentDate);
+        const firstOfCurrentIndex = days.findIndex(d =>
+            d.getFullYear() === firstOfCurrentMonth.getFullYear() &&
+            d.getMonth() === firstOfCurrentMonth.getMonth() &&
+            d.getDate() === 1
+        );
+
+        // Threshold varies by view: week=1, month=2, year=3
+        const threshold = viewRange === 'week' ? 1 : viewRange === 'month' ? 2 : 3;
+        // If we're already viewing the first few days of the month, go to previous month
+        if (firstOfCurrentIndex >= 0 && dayIndex - firstOfCurrentIndex < threshold) {
+            // Find first day of previous month
+            const prevMonth = subMonths(firstOfCurrentMonth, 1);
+            const prevIndex = days.findIndex(d =>
+                d.getFullYear() === prevMonth.getFullYear() &&
+                d.getMonth() === prevMonth.getMonth() &&
+                d.getDate() === 1
+            );
+            if (prevIndex >= 0) {
+                container.scrollTo({ left: prevIndex * dayWidth, behavior: 'smooth' });
+            }
+        } else if (firstOfCurrentIndex >= 0) {
+            // Go to first day of current month
+            container.scrollTo({ left: firstOfCurrentIndex * dayWidth, behavior: 'smooth' });
+        }
+    }, [days, dayWidth, viewRange]);
+
+    // Scroll to next month's first day
+    const scrollToNextMonth = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container || days.length === 0) return;
+        const scrollLeft = container.scrollLeft;
+        const dayIndex = Math.max(0, Math.floor(scrollLeft / dayWidth));
+        const currentDate = days[dayIndex];
+
+        // Find first day of next month
+        const nextMonth = addMonths(startOfMonth(currentDate), 1);
+        const nextIndex = days.findIndex(d =>
+            d.getFullYear() === nextMonth.getFullYear() &&
+            d.getMonth() === nextMonth.getMonth() &&
+            d.getDate() === 1
+        );
+        if (nextIndex >= 0) {
+            container.scrollTo({ left: nextIndex * dayWidth, behavior: 'smooth' });
+        }
+    }, [days, dayWidth]);
+
     const totalDays = days.length;
 
     const getTaskPosition = (task: { taskStart: Date | null; taskEnd: Date | null }) => {
@@ -475,7 +566,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
     // Calculate new date based on mouse position
     const calculateDateFromX = useCallback((clientX: number, containerRect: DOMRect, scrollLeft: number): Date => {
         const relativeX = clientX - containerRect.left - 200 + scrollLeft; // 200 is task name column width
-        const dayIndex = Math.round(relativeX / dayWidth);
+        const dayIndex = Math.floor(relativeX / dayWidth);
         const clampedIndex = Math.max(0, Math.min(dayIndex, totalDays - 1));
         return addDays(startDate, clampedIndex);
     }, [dayWidth, totalDays, startDate]);
@@ -490,10 +581,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         e.preventDefault();
         if (!task.taskStart || !task.taskEnd) return;
 
+        hasMovedDuringResize.current = false;
         setResizing({
             taskId: task.id,
             edge,
             initialX: e.clientX,
+            initialScrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
             initialStart: task.taskStart,
             initialEnd: task.taskEnd,
         });
@@ -505,6 +598,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
         const handleMouseMove = (e: MouseEvent) => {
             if (!scrollContainerRef.current || !resizing) return;
+
+            hasMovedDuringResize.current = true;
 
             // Auto-scroll when near edges during resize/drag
             updateAutoScroll(e.clientX);
@@ -518,28 +613,26 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
             if (resizing.edge === 'move') {
                 // Moving the entire task bar - preserve duration
-                const initialStartDate = calculateDateFromX(resizing.initialX, containerRect, scrollLeft);
+                // Use initialScrollLeft (captured at drag start) to calculate the initial position consistently
+                const initialStartDate = calculateDateFromX(resizing.initialX, containerRect, resizing.initialScrollLeft);
                 const daysDiff = differenceInDays(newDate, initialStartDate);
 
                 newStart = addDays(resizing.initialStart, daysDiff);
                 newEnd = addDays(resizing.initialEnd, daysDiff);
             } else {
-                // Find the current task to get its current dates
-                const currentTask = timelineTasks.find(t => t.id === resizing.taskId);
-                if (!currentTask || !currentTask.taskStart || !currentTask.taskEnd) return;
-
-                // Calculate new start and end based on edge being resized
-                newStart = currentTask.taskStart;
-                newEnd = currentTask.taskEnd;
+                // Use initial dates from resizing state (captured at drag start)
+                // instead of stale timelineTasks data which may not reflect intermediate updates
+                newStart = resizing.initialStart;
+                newEnd = resizing.initialEnd;
 
                 if (resizing.edge === 'left') {
                     // Moving start date - ensure it doesn't go past end date
-                    if (newDate <= currentTask.taskEnd) {
+                    if (newDate <= resizing.initialEnd) {
                         newStart = newDate;
                     }
                 } else {
                     // Moving end date - ensure it doesn't go before start date
-                    if (newDate >= currentTask.taskStart) {
+                    if (newDate >= resizing.initialStart) {
                         newEnd = newDate;
                     }
                 }
@@ -554,15 +647,17 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
         const handleMouseUp = () => {
             stopAutoScroll();
-            justFinishedResizing.current = true;
+            if (hasMovedDuringResize.current) {
+                // Only block click if actual drag/resize happened
+                justFinishedResizing.current = true;
+                setTimeout(() => {
+                    justFinishedResizing.current = false;
+                }, 100);
+            }
             if (scrollContainerRef.current) {
                 savedScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
             }
             setResizing(null);
-            // Reset the flag after a short delay to allow click event to be ignored
-            setTimeout(() => {
-                justFinishedResizing.current = false;
-            }, 100);
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -572,73 +667,97 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [resizing, calculateDateFromX, stableTaskUpdate, timelineTasks, updateAutoScroll, stopAutoScroll]);
+    }, [resizing, calculateDateFromX, stableTaskUpdate, updateAutoScroll, stopAutoScroll]);
 
     return (
         <div style={{
             backgroundColor: theme.bg,
-            borderRadius: '12px',
-            padding: '20px',
+            borderRadius: '16px',
             height: '100%',
+            maxHeight: '100%',
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
         }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '20px',
-                flexWrap: 'wrap',
-                gap: '12px',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h2 style={{ margin: 0, color: theme.text, fontSize: '26px' }}>Timeline</h2>
-                    <button
-                        onClick={() => setHideDone(!hideDone)}
-                        title={hideDone ? 'Show Done tasks' : 'Hide Done tasks'}
-                        style={{
-                            padding: '14px 26px',
-                            borderRadius: '30px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '20px',
-                            fontWeight: 700,
-                            backgroundColor: hideDone ? theme.primary : theme.surface,
-                            color: hideDone ? '#fff' : theme.textMuted,
-                            transition: 'all 0.2s ease',
-                        }}
-                    >
-                        Done 非表示
-                    </button>
-                </div>
+                {/* Toolbar */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '24px 32px',
+                    backgroundColor: theme.headerBg,
+                    flexShrink: 0,
+                    gap: '16px',
+                    minHeight: '120px',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <h2 style={{ margin: 0, fontSize: '42px', color: theme.text, flexShrink: 0, minWidth: '240px' }}>
+                            {headerLabel}
+                        </h2>
+                        <button
+                            onClick={() => { const newVal = !hideDone; setHideDone(newVal); onHideDoneChange?.(newVal); }}
+                            style={{
+                                padding: '10px 26px',
+                                borderRadius: '30px',
+                                border: hideDone ? '1.5px solid transparent' : '1.5px solid rgba(255, 255, 255, 0.40)',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                fontWeight: 700,
+                                backgroundColor: hideDone ? theme.primary : theme.surface,
+                                color: hideDone ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
+                                transition: 'all 0.2s ease',
+                                flexShrink: 0,
+                            }}
+                        >
+                            Done 非表示
+                        </button>
+                    </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Spacer */}
+                    <div style={{ flex: 1 }} />
+
+                    {/* English month name - center */}
+                    <span style={{
+                        fontSize: '42px',
+                        fontWeight: 700,
+                        color: theme.text,
+                        letterSpacing: '0.05em',
+                        opacity: 0.85,
+                    }}>
+                        {headerMonthEn}
+                    </span>
+
+                    {/* Spacer */}
+                    <div style={{ flex: 1 }} />
+
                     {/* View Range Toggle */}
                     <div style={{
                         display: 'flex',
-                        backgroundColor: theme.surface,
+                        alignItems: 'center',
+                        backgroundColor: theme.bg,
                         borderRadius: '30px',
-                        padding: '4px',
+                        padding: '5px',
                         gap: '2px',
                     }}>
                         {([
                             { range: 'week' as ViewRange, icon: (
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     <line x1="8" y1="11" x2="14" y2="11" /><line x1="11" y1="8" x2="11" y2="14" />
                                 </svg>
                             )},
                             { range: 'month' as ViewRange, icon: (
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                     <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
                                     <line x1="3" y1="10" x2="21" y2="10" />
                                 </svg>
                             )},
                             { range: '3months' as ViewRange, icon: (
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     <line x1="8" y1="11" x2="14" y2="11" />
                                 </svg>
@@ -646,9 +765,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         ]).map(({ range, icon }) => (
                             <button
                                 key={range}
-                                onClick={() => setViewRange(range)}
+                                onClick={() => { setViewRange(range); onViewRangeChange?.(range); }}
                                 style={{
-                                    padding: '14px 26px',
+                                    padding: '10px 28px',
                                     borderRadius: '30px',
                                     border: 'none',
                                     cursor: 'pointer',
@@ -656,7 +775,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     backgroundColor: viewRange === range ? theme.primary : 'transparent',
-                                    color: viewRange === range ? '#fff' : theme.textMuted,
+                                    color: viewRange === range ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
                                     transition: 'all 0.2s ease',
                                 }}
                             >
@@ -665,39 +784,61 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         ))}
                     </div>
 
-                    {/* Today button */}
+                    {/* Navigation: ◀ Today ▶ */}
                     <button
+                        type="button"
+                        onClick={() => scrollToPrevMonth()}
+                        style={{
+                            width: '44px', height: '44px', borderRadius: '50%', border: 'none',
+                            cursor: 'pointer', fontSize: '18px', lineHeight: 1,
+                            backgroundColor: theme.surface, color: theme.textMuted,
+                            flexShrink: 0,
+                        }}
+                    >
+                        ◀
+                    </button>
+                    <button
+                        type="button"
                         onClick={goToToday}
                         style={{
-                            padding: '14px 26px',
+                            padding: '10px 26px',
                             borderRadius: '30px',
                             border: 'none',
                             cursor: 'pointer',
                             fontSize: '20px',
                             fontWeight: 700,
                             backgroundColor: theme.primary,
-                            color: '#fff',
-                            transition: 'all 0.2s ease',
+                            color: 'rgba(255, 255, 255, 0.85)',
+                            flexShrink: 0,
                         }}
                     >
                         Today
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => scrollToNextMonth()}
+                        style={{
+                            width: '44px', height: '44px', borderRadius: '50%', border: 'none',
+                            cursor: 'pointer', fontSize: '18px', lineHeight: 1,
+                            backgroundColor: theme.surface, color: theme.textMuted,
+                            flexShrink: 0,
+                        }}
+                    >
+                        ▶
+                    </button>
                 </div>
-            </div>
 
-            {/* Timeline Grid */}
-            <div
-                ref={scrollContainerRef}
-                className="calendar-scroll-hide"
-                style={{
-                    flex: 1,
-                    overflow: 'auto',
-                    scrollbarWidth: 'none',
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: '8px',
-                    cursor: resizing ? 'ew-resize' : 'default',
-                } as React.CSSProperties}
-            >
+                {/* Timeline Grid */}
+                <div
+                    ref={scrollContainerRef}
+                    className="calendar-scroll-hide"
+                    style={{
+                        flex: 1,
+                        overflow: 'auto',
+                        scrollbarWidth: 'none',
+                        cursor: resizing ? 'ew-resize' : 'default',
+                    } as React.CSSProperties}
+                >
                 <div style={{ minWidth: `${totalDays * dayWidth + 200}px` }}>
                     {/* Date Headers */}
                     <div style={{
@@ -721,7 +862,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                             backgroundColor: theme.surface,
                             zIndex: 11,
                         }}>
-                            {headerLabel || 'Task'}
+                            {''}
                         </div>
 
                         {/* Date Headers */}
@@ -745,43 +886,23 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                                             minWidth: `${dayWidth}px`,
                                             padding: '4px 2px',
                                             textAlign: 'center',
-                                            fontSize: viewRange === 'week' ? '11px' : '9px',
+                                            fontSize: '20px',
                                             color: isToday ? theme.primary : isWeekend ? theme.textMuted : theme.text,
                                             fontWeight: isToday ? 700 : 400,
                                             borderRight: `1px solid ${theme.border}`,
-                                            backgroundColor: isToday ? `${theme.primary}20` : 'transparent',
+                                            backgroundColor: isToday ? `${theme.primary}20` : (day.getMonth() + 1) % 2 === 1 ? theme.monthOdd : theme.monthEven,
                                         }}
                                     >
-                                        {/* Show year when month changes */}
-                                        {showMonthYear && (
-                                            <div style={{
-                                                fontSize: viewRange === 'week' ? '10px' : viewRange === 'month' ? '8px' : '7px',
-                                                color: theme.primary,
-                                                fontWeight: 600,
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                            }}>
-                                                {viewRange === '3months' ? format(day, 'yy') : format(day, 'yyyy')}
-                                            </div>
-                                        )}
-                                        {/* Show month for all days */}
-                                        <div style={{
-                                            fontSize: viewRange === 'week' ? '9px' : viewRange === 'month' ? '7px' : '6px',
-                                            color: theme.textMuted,
-                                            whiteSpace: 'nowrap',
-                                        }}>
-                                            {format(day, 'M')}月
-                                        </div>
                                         {/* Day number */}
-                                        <div style={{ fontWeight: isToday ? 700 : 500 }}>
+                                        <div style={{ fontWeight: isToday ? 700 : 500, fontSize: '20px' }}>
                                             {format(day, 'd')}
                                         </div>
                                         {/* Day of week */}
                                         <div style={{
-                                            fontSize: viewRange === 'week' ? '10px' : '8px',
+                                            fontSize: '20px',
                                             color: day.getDay() === 0 ? '#ef4444' : day.getDay() === 6 ? '#3b82f6' : theme.textMuted,
                                         }}>
-                                            {viewRange === 'week' ? format(day, 'EEE') : dayOfWeekJP}
+                                            {dayOfWeekJP}
                                         </div>
                                     </div>
                                 );
@@ -789,17 +910,20 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         </div>
                     </div>
 
-                    {/* Task Rows */}
-                    {timelineTasks.length === 0 ? (
-                        <div style={{
-                            padding: '40px',
-                            textAlign: 'center',
-                            color: theme.textMuted,
-                        }}>
-                            No tasks to display. Create a new task to see it on the timeline.
-                        </div>
-                    ) : (
-                        <div>
+                    {/* Task Rows with month watermarks overlay */}
+                    <div style={{ position: 'relative' }}>
+                        {/* Task rows content */}
+                        {timelineTasks.length === 0 ? (
+                            <div style={{
+                                padding: '40px',
+                                textAlign: 'center',
+                                color: theme.textMuted,
+                                minHeight: '200px',
+                            }}>
+                                No tasks to display. Create a new task to see it on the timeline.
+                            </div>
+                        ) : (
+                            <div>
                             {timelineTasks.map((task) => {
                                 const position = getTaskPosition(task);
                                 return (
@@ -819,8 +943,44 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                                     />
                                 );
                             })}
-                        </div>
-                    )}
+                            </div>
+                        )}
+
+                        {/* Month name watermarks — above grid cells, below task bars */}
+                        {monthSpans.map((span) => {
+                            const left = 200 + span.startIndex * dayWidth;
+                            const width = (span.endIndex - span.startIndex + 1) * dayWidth;
+                            const repeatCount = viewRange === 'week' ? 3 : 1;
+                            const segmentWidth = width / repeatCount;
+                            const fontSize = Math.min(segmentWidth * 0.6, 200);
+                            return Array.from({ length: repeatCount }, (_, i) => (
+                                <div
+                                    key={`wm-${span.year}-${span.month}-${i}`}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${left + segmentWidth * i}px`,
+                                        width: `${segmentWidth}px`,
+                                        top: 0,
+                                        bottom: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: `${fontSize}px`,
+                                        fontWeight: 900,
+                                        color: 'rgba(255, 255, 255, 0.04)',
+                                        pointerEvents: 'none',
+                                        userSelect: 'none',
+                                        lineHeight: 1,
+                                        whiteSpace: 'nowrap',
+                                        zIndex: 2,
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {span.name}
+                                </div>
+                            ));
+                        })}
+                    </div>
                 </div>
             </div>
         </div>

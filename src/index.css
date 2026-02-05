@@ -6,7 +6,7 @@
   --color-primary: #8b5cf6;
   /* Violet */
   --color-primary-hover: #7c3aed;
-  --color-text-main: #f8fafc;
+  --color-text-main: rgba(248, 250, 252, 0.85);
   --color-text-muted: #94a3b8;
   --color-border: #334155;
 
@@ -43,7 +43,8 @@ body {
 button {
   cursor: pointer;
   border: none;
-  background: none;
+  background-color: transparent;
+  background-image: none;
   font-family: inherit;
 }
 
@@ -119,7 +120,7 @@ button {
 
 .btn-primary {
   background-color: var(--color-primary);
-  color: white;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .btn-primary:hover {
@@ -133,3 +134,48 @@ button {
   padding: 1.5rem;
   box-shadow: var(--shadow-md);
 }
+
+/* Tailwind-equivalent utility classes */
+
+/* Font weight */
+.font-medium { font-weight: 500; }
+.font-bold { font-weight: 700; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; }
+
+/* Font size */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+
+/* Colors */
+.text-red-500 { color: #ef4444; }
+.text-yellow-400 { color: #facc15; }
+.text-slate-700 { color: #334155; }
+.text-slate-900 { color: #0f172a; }
+
+/* Display */
+.block { display: block; }
+
+/* Text decoration */
+.underline { text-decoration: underline; }
+
+/* Spacing */
+.mb-1 { margin-bottom: 0.25rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mr-auto { margin-right: auto; }
+.gap-1 { gap: 0.25rem; }
+
+/* Layout */
+.resize-none { resize: none; }
+.opacity-80 { opacity: 0.8; }
+.transition-all { transition: all 0.2s ease; }
+
+/* Background with opacity */
+.bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
+
+/* Hover states */
+.hover\:text-white:hover { color: rgba(255, 255, 255, 0.85); }
+.hover\:underline:hover { text-decoration: underline; }
+.hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1); }
+.hover\:bg-white\/50:hover { background-color: rgba(255, 255, 255, 0.5); }
+
+/* Group utility (parent hover detection) */
+.group:hover .group-hover\:visible { visibility: visible; }

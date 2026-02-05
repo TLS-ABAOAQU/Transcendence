@@ -79,6 +79,7 @@ export const Dashboard: React.FC = () => {
 
     // Modal interaction ref to prevent closing when dragging from inside to outside
     const mouseDownInsideModal = useRef(false);
+    const modalContentRef = useRef<HTMLDivElement>(null);
 
     // DnD State
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -88,15 +89,59 @@ export const Dashboard: React.FC = () => {
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    // ESC key to close modal
+    // Refs for stable closures in event handlers
+    const handleSubmitRef = useRef<() => void>(() => {});
+    const autoSaveCloseRef = useRef<() => void>(() => {});
+
+    // Global modal keyboard handler: Cmd+Enter to save, Escape to auto-save & close
     useEffect(() => {
-        const handleEscKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && modalMode) {
-                closeModal();
+        if (!modalMode) return;
+
+        const handleGlobalModalKeyDown = (e: KeyboardEvent) => {
+            // Cmd+Enter / Ctrl+Enter = Save
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmitRef.current();
+                return;
+            }
+            // Escape = auto-save and close
+            if (e.key === 'Escape') {
+                autoSaveCloseRef.current();
+                return;
             }
         };
-        window.addEventListener('keydown', handleEscKey);
-        return () => window.removeEventListener('keydown', handleEscKey);
+
+        window.addEventListener('keydown', handleGlobalModalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalModalKeyDown);
+    }, [modalMode]);
+
+    // Focus trap: Tab/Shift+Tab wraps within modal
+    useEffect(() => {
+        if (!modalMode) return;
+
+        const handleFocusTrap = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+            if (!modalContentRef.current) return;
+
+            const focusables = Array.from(modalContentRef.current.querySelectorAll<HTMLElement>(
+                'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), [tabindex="0"]'
+            ));
+            if (focusables.length === 0) return;
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+
+        window.addEventListener('keydown', handleFocusTrap);
+        return () => window.removeEventListener('keydown', handleFocusTrap);
     }, [modalMode]);
 
     // Arrow key navigation for color selection
@@ -154,10 +199,29 @@ export const Dashboard: React.FC = () => {
         setEditingId(project.id);
     };
 
+    // Auto-save and close (for overlay click, Escape)
+    const autoSaveAndClose = () => {
+        if (modalMode === 'edit' && editingId && name.trim()) {
+            updateProject(editingId, { name, theme: selectedTheme, startDate, deadline });
+        }
+        setModalMode(null);
+        setEditingId(null);
+    };
+
+    // Cancel: discard changes and close
+    const cancelModal = () => {
+        setModalMode(null);
+        setEditingId(null);
+    };
+
     const closeModal = () => {
         setModalMode(null);
         setEditingId(null);
     };
+
+    // Update refs for stable closures
+    handleSubmitRef.current = handleSubmitFromKeyboard;
+    autoSaveCloseRef.current = autoSaveAndClose;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -222,12 +286,13 @@ export const Dashboard: React.FC = () => {
                         onMouseDown={() => { mouseDownInsideModal.current = false; }}
                         onMouseUp={() => {
                             if (!mouseDownInsideModal.current) {
-                                closeModal();
+                                autoSaveAndClose();
                             }
                             mouseDownInsideModal.current = false;
                         }}
                     >
                         <div
+                            ref={modalContentRef}
                             className="card modal-content"
                             onMouseDown={(e) => {
                                 e.stopPropagation();
@@ -314,11 +379,11 @@ export const Dashboard: React.FC = () => {
                                                 Delete
                                             </button>
                                         )}
-                                        <button type="button" className="btn text-muted hover:text-white" onClick={closeModal}>
+                                        <button type="button" className="btn text-muted hover:text-white" onClick={cancelModal}>
                                             Cancel
                                         </button>
                                         <button type="submit" className="btn btn-primary">
-                                            {modalMode === 'create' ? 'Create Project' : 'Save Changes'}
+                                            {modalMode === 'create' ? 'Create Project' : 'Save (⌘+⏎)'}
                                         </button>
                                     </div>
                                 </form>
@@ -338,78 +403,111 @@ export const Dashboard: React.FC = () => {
                         strategy={rectSortingStrategy}
                     >
                         <div className="project-grid">
-                            {projects.map((project) => (
+                            {projects.map((project) => {
+                                const totalTasks = project.tasks.length;
+                                const doneTasks = project.tasks.filter(t => t.status === 'done').length;
+                                const inProgressTasks = project.tasks.filter(t => t.status === 'in-progress').length;
+                                const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+                                return (
                                 <SortableItem key={project.id} id={project.id}>
                                     <div
                                         onClick={() => setActiveProject(project.id)}
-                                        className="card project-card group"
-                                        style={{ backgroundColor: project.theme, border: 'none', color: '#1e293b' }}
+                                        className="project-card"
+                                        style={{ backgroundColor: project.theme, border: 'none' }}
                                     >
-                                        <div className="project-header">
-                                            <div className="flex-1" style={{ overflow: 'hidden' }}>
-                                                <MarqueeProjectName name={project.name} />
-                                                {project.deadline && (
-                                                    <div className="text-xs text-slate-700 mt-1 flex items-center gap-1 opacity-80">
-                                                        <span>📅 Due: {project.deadline}</span>
+                                        <div className="project-card-inner">
+                                            <div>
+                                                <div className="project-header">
+                                                    <div className="flex-1" style={{ overflow: 'hidden' }}>
+                                                        <MarqueeProjectName name={project.name} />
+                                                    </div>
+                                                </div>
+                                                {(project.startDate || project.deadline) && (
+                                                    <div className="project-date-badge">
+                                                        {project.startDate || '?'} 〜 {project.deadline || '?'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={(e) => openEditModal(e, project)}
+                                                className="project-edit-btn"
+                                                title="Edit Project"
+                                            >
+                                                <svg viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                            </button>
+                                            <div className="project-bottom">
+                                                {totalTasks > 0 ? (
+                                                    <div className="project-progress-bar">
+                                                        <div
+                                                            className="project-progress-fill"
+                                                            style={{ width: `${progressPercent}%` }}
+                                                        />
+                                                        <div className="project-progress-label">
+                                                            <span>{doneTasks}/{totalTasks} done{inProgressTasks > 0 ? ` · ${inProgressTasks} active` : ''}</span>
+                                                            <span>{progressPercent}%</span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="project-stats-no-bar">
+                                                        <span>No tasks</span>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={(e) => openEditModal(e, project)}
-                                            className="hover:bg-white/50 transition-all"
-                                            style={{
-                                                position: 'absolute',
-                                                top: '0.75rem',
-                                                right: '0.75rem',
-                                                backgroundColor: 'rgba(255,255,255,0.4)',
-                                                borderRadius: '50%',
-                                                width: '2rem',
-                                                height: '2rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '0.875rem',
-                                                border: 'none',
-                                                cursor: 'pointer'
-                                            }}
-                                            title="Edit Project"
-                                        >
-                                            ✏️
-                                        </button>
-                                        <div className="project-stats" style={{ color: '#334155' }}>
-                                            <span>{project.tasks.length} tasks</span>
-                                            <span>{project.tasks.filter(t => t.status === 'done').length} completed</span>
-                                        </div>
                                     </div>
                                 </SortableItem>
-                            ))}
+                                );
+                            })}
                         </div>
                     </SortableContext>
                 )}
 
                 <DragOverlay>
-                    {activeProject ? (
+                    {activeProject ? (() => {
+                        const totalTasks = activeProject.tasks.length;
+                        const doneTasks = activeProject.tasks.filter(t => t.status === 'done').length;
+                        const inProgressTasks = activeProject.tasks.filter(t => t.status === 'in-progress').length;
+                        const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+                        return (
                         <div
-                            className="card project-card"
-                            style={{ backgroundColor: activeProject.theme, border: 'none', cursor: 'grabbing', opacity: 0.9, color: '#1e293b' }}
+                            className="project-card"
+                            style={{ backgroundColor: activeProject.theme, border: 'none', cursor: 'grabbing', opacity: 0.9 }}
                         >
-                            <div className="project-header">
-                                <div style={{ overflow: 'hidden', flex: 1 }}>
-                                    <MarqueeProjectName name={activeProject.name} />
-                                    {activeProject.deadline && (
-                                        <div className="text-xs text-slate-700 mt-1 flex items-center gap-1 opacity-80">
-                                            <span>📅 Due: {activeProject.deadline}</span>
+                            <div className="project-card-inner">
+                                <div>
+                                    <div className="project-header">
+                                        <div style={{ overflow: 'hidden', flex: 1 }}>
+                                            <MarqueeProjectName name={activeProject.name} />
+                                        </div>
+                                    </div>
+                                    {(activeProject.startDate || activeProject.deadline) && (
+                                        <div className="project-date-badge">
+                                            {activeProject.startDate || '?'} 〜 {activeProject.deadline || '?'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="project-bottom">
+                                    {totalTasks > 0 ? (
+                                        <div className="project-progress-bar">
+                                            <div
+                                                className="project-progress-fill"
+                                                style={{ width: `${progressPercent}%` }}
+                                            />
+                                            <div className="project-progress-label">
+                                                <span>{doneTasks}/{totalTasks} done{inProgressTasks > 0 ? ` · ${inProgressTasks} active` : ''}</span>
+                                                <span>{progressPercent}%</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="project-stats-no-bar">
+                                            <span>No tasks</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="project-stats" style={{ color: '#334155' }}>
-                                <span>{activeProject.tasks.length} tasks</span>
-                                <span>{activeProject.tasks.filter(t => t.status === 'done').length} completed</span>
-                            </div>
                         </div>
-                    ) : null}
+                        );
+                    })() : null}
                 </DragOverlay>
             </div>
         </DndContext>

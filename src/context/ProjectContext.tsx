@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, type ReactNode } from 'react';
-import type { Project, Task, Status } from '../types';
+import type { Project, Task, Status, ViewSettings } from '../types';
 import { useLocalStorageWithHistory } from '../hooks/useLocalStorageWithHistory';
 
 interface ProjectContextType {
@@ -14,6 +14,7 @@ interface ProjectContextType {
     deleteTask: (projectId: string, taskId: string) => void;
     reorderProjects: (newOrder: Project[]) => void;
     reorderTasks: (projectId: string, newTasks: Task[]) => void;
+    updateViewSettings: (projectId: string, settings: Partial<ViewSettings>) => void;
     setActiveProject: (id: string | null) => void;
     undo: () => void;
     redo: () => void;
@@ -66,11 +67,12 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }, [undo, redo]);
 
     const addProject = (name: string, theme: string, startDate?: string, deadline?: string) => {
+        const today = new Date().toISOString().split('T')[0];
         const newProject: Project = {
             id: crypto.randomUUID(),
             name,
             theme,
-            startDate,
+            startDate: startDate || today,
             deadline,
             tasks: [],
             createdAt: Date.now(),
@@ -152,6 +154,15 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
     };
 
+    const updateViewSettings = (projectId: string, settings: Partial<ViewSettings>) => {
+        setProjects((prev) =>
+            prev.map((p) => {
+                if (p.id !== projectId) return p;
+                return { ...p, viewSettings: { ...p.viewSettings, ...settings } };
+            })
+        );
+    };
+
     return (
         <ProjectContext.Provider
             value={{
@@ -166,6 +177,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
                 deleteTask,
                 reorderProjects,
                 reorderTasks,
+                updateViewSettings,
                 setActiveProject: setActiveProjectId,
                 undo,
                 redo,
