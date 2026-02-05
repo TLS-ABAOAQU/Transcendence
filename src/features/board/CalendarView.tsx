@@ -65,6 +65,73 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
     const calendarGridRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const savedScrollTopRef = useRef<number | null>(null);
+    const autoScrollTimerRef = useRef<number | null>(null);
+    const justFinishedResizingRef = useRef(false);
+
+    // Auto-scroll: scroll the calendar when dragging near top/bottom edges
+    const autoScroll = useCallback((clientY: number) => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const hotZone = 80; // px from edge
+        const maxSpeed = 12; // px per frame
+
+        if (clientY < rect.top + hotZone) {
+            // Near top edge — scroll up
+            const distance = rect.top + hotZone - clientY;
+            const speed = Math.min(maxSpeed, Math.ceil((distance / hotZone) * maxSpeed));
+            container.scrollTop -= speed;
+        } else if (clientY > rect.bottom - hotZone) {
+            // Near bottom edge — scroll down
+            const distance = clientY - (rect.bottom - hotZone);
+            const speed = Math.min(maxSpeed, Math.ceil((distance / hotZone) * maxSpeed));
+            container.scrollTop += speed;
+        }
+    }, []);
+
+    const startAutoScroll = useCallback((clientY: number) => {
+        if (autoScrollTimerRef.current !== null) {
+            cancelAnimationFrame(autoScrollTimerRef.current);
+        }
+        const tick = () => {
+            autoScroll(clientY);
+            autoScrollTimerRef.current = requestAnimationFrame(tick);
+        };
+        autoScrollTimerRef.current = requestAnimationFrame(tick);
+    }, [autoScroll]);
+
+    const updateAutoScroll = useCallback((clientY: number) => {
+        // Store latest Y for continuous scrolling
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const hotZone = 80;
+        const inHotZone = clientY < rect.top + hotZone || clientY > rect.bottom - hotZone;
+
+        if (inHotZone) {
+            if (autoScrollTimerRef.current === null) {
+                startAutoScroll(clientY);
+            } else {
+                // Update: cancel old timer, start new with updated Y
+                cancelAnimationFrame(autoScrollTimerRef.current);
+                startAutoScroll(clientY);
+            }
+        } else {
+            stopAutoScroll();
+        }
+    }, [startAutoScroll]);
+
+    const stopAutoScroll = useCallback(() => {
+        if (autoScrollTimerRef.current !== null) {
+            cancelAnimationFrame(autoScrollTimerRef.current);
+            autoScrollTimerRef.current = null;
+        }
+    }, []);
+
+    // Clean up auto-scroll timer on unmount
+    useEffect(() => {
+        return () => stopAutoScroll();
+    }, [stopAutoScroll]);
 
     // Save scroll position before task updates, restore after re-render
     useLayoutEffect(() => {
@@ -114,17 +181,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             .filter((t): t is TaskWithDates => t !== null);
     }, [tasks, hideDone]);
 
-    // Extended weeks array (replaces single-month `weeks`)
+    // Extended weeks array — fixed range (±12 months from today), independent of task data
     const { allWeeks, todayWeekIndex } = useMemo(() => {
         const today = new Date();
-        let earliest: Date = today;
-        let latest: Date = today;
-        tasksWithDates.forEach(t => {
-            if (t.taskStart < earliest) earliest = t.taskStart;
-            if (t.taskEnd > latest) latest = t.taskEnd;
-        });
-        const rangeStart = startOfWeek(startOfMonth(subMonths(earliest < today ? earliest : today, 3)));
-        const rangeEnd = endOfWeek(endOfMonth(addMonths(latest > today ? latest : today, 3)));
+        const rangeStart = startOfWeek(startOfMonth(subMonths(today, 12)));
+        const rangeEnd = endOfWeek(endOfMonth(addMonths(today, 12)));
         const days = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
         const weeks: Date[][] = [];
         for (let i = 0; i < days.length; i += 7) {
@@ -132,7 +193,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         }
         const todayIdx = weeks.findIndex(w => w.some(d => isSameDay(d, today)));
         return { allWeeks: weeks, todayWeekIndex: Math.max(todayIdx, 0) };
-    }, [tasksWithDates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Tasks with preview dates (applying resize delta or drag preview)
     const tasksWithPreviewDates = useMemo((): TaskWithDates[] => {
@@ -325,21 +387,72 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         }
     }, [allWeeks]);
 
-    // Derive prev/next month from headerLabel
-    const { prevMonth, nextMonth } = useMemo(() => {
-        const match = headerLabel.match(/(\d+)年(\d+)月/);
-        if (!match) return { prevMonth: { year: 0, month: 0 }, nextMonth: { year: 0, month: 0 } };
-        const year = parseInt(match[1], 10);
-        const month = parseInt(match[2], 10);
-        const pMonth = month === 1 ? 12 : month - 1;
-        const pYear = month === 1 ? year - 1 : year;
-        const nMonth = month === 12 ? 1 : month + 1;
-        const nYear = month === 12 ? year + 1 : year;
-        return {
-            prevMonth: { year: pYear, month: pMonth },
-            nextMonth: { year: nYear, month: nMonth },
-        };
-    }, [headerLabel]);
+    // ◀: Scroll to current month's first week, or previous month's first week if already there
+    const scrollToPrevMonthBoundary = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const currentScrollTop = container.scrollTop;
+        // Find the current top visible week index and its month
+        const rows = container.querySelectorAll('[data-week-index]');
+        let currentMonth = -1;
+        let topWeekIndex = -1;
+        for (const row of rows) {
+            const el = row as HTMLElement;
+            if (el.offsetTop + el.offsetHeight > currentScrollTop) {
+                topWeekIndex = parseInt(el.dataset.weekIndex || '0', 10);
+                const thu = allWeeks[topWeekIndex]?.[4];
+                if (thu) currentMonth = thu.getFullYear() * 100 + thu.getMonth();
+                break;
+            }
+        }
+        // Find the first week of the current month
+        const firstWeekOfCurrentMonth = allWeeks.findIndex(w => {
+            const t = w[4];
+            return t.getFullYear() * 100 + t.getMonth() === currentMonth;
+        });
+        // If not already at the first week of current month, go there
+        if (firstWeekOfCurrentMonth >= 0 && firstWeekOfCurrentMonth < topWeekIndex) {
+            const thu = allWeeks[firstWeekOfCurrentMonth][4];
+            scrollToMonth(thu.getFullYear(), thu.getMonth() + 1);
+            return;
+        }
+        // Already at first week — go to previous month's first week
+        for (let i = allWeeks.length - 1; i >= 0; i--) {
+            const thu = allWeeks[i][4];
+            const monthKey = thu.getFullYear() * 100 + thu.getMonth();
+            if (monthKey < currentMonth) {
+                scrollToMonth(thu.getFullYear(), thu.getMonth() + 1);
+                return;
+            }
+        }
+    }, [allWeeks, scrollToMonth]);
+
+    const scrollToNextMonthBoundary = useCallback(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const currentScrollTop = container.scrollTop;
+        // Find the current top visible week
+        const rows = container.querySelectorAll('[data-week-index]');
+        let currentMonth = -1;
+        for (const row of rows) {
+            const el = row as HTMLElement;
+            if (el.offsetTop + el.offsetHeight > currentScrollTop) {
+                const wi = parseInt(el.dataset.weekIndex || '0', 10);
+                const thu = allWeeks[wi]?.[4];
+                if (thu) currentMonth = thu.getFullYear() * 100 + thu.getMonth();
+                break;
+            }
+        }
+        // Find the first week of the next month
+        for (let i = 0; i < allWeeks.length; i++) {
+            const thu = allWeeks[i][4];
+            const monthKey = thu.getFullYear() * 100 + thu.getMonth();
+            if (monthKey > currentMonth) {
+                scrollToMonth(thu.getFullYear(), thu.getMonth() + 1);
+                return;
+            }
+        }
+    }, [allWeeks, scrollToMonth]);
 
     // Handle drag start for task bar
     const handleTaskBarDragStart = useCallback((e: React.DragEvent, task: TaskWithDates) => {
@@ -419,6 +532,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         if (!resizeState || !calendarGridRef.current) return;
 
         const handleMouseMove = (e: MouseEvent) => {
+            // Auto-scroll when near edges during resize
+            updateAutoScroll(e.clientY);
+
             const targetDate = getDateFromMousePosition(e);
             if (!targetDate) return;
             let daysDelta: number;
@@ -433,6 +549,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         };
 
         const handleMouseUp = () => {
+            stopAutoScroll();
             if (resizeState.currentDaysDelta !== 0) {
                 let newStart = resizeState.initialStart;
                 let newEnd = resizeState.initialEnd;
@@ -453,7 +570,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             if (scrollContainerRef.current) {
                 savedScrollTopRef.current = scrollContainerRef.current.scrollTop;
             }
+            justFinishedResizingRef.current = true;
             setResizeState(null);
+            setTimeout(() => { justFinishedResizingRef.current = false; }, 200);
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -462,7 +581,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [resizeState, stableTaskUpdate, getDateFromMousePosition]);
+    }, [resizeState, stableTaskUpdate, getDateFromMousePosition, updateAutoScroll, stopAutoScroll]);
 
     // Handle drop on undated area (remove dates)
     const handleDropOnUndated = useCallback((e: React.DragEvent) => {
@@ -484,16 +603,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         const spanWidth = endCol - startCol + 1;
         const leftPercent = (startCol / 7) * 100;
         const widthPercent = (spanWidth / 7) * 100;
-        const topOffset = 44;
-        const laneHeight = 32;
-        const barHeight = 28;
+        const topOffset = 52;
+        const laneHeight = 40;
+        const barHeight = 36;
 
         return (
             <div
                 key={`${task.id}-${weekIndex}`}
                 draggable={!isResizing}
                 onDragStart={(e) => handleTaskBarDragStart(e, task)}
-                onDragEnd={() => { setDraggingTask(null); setDragPreviewDate(null); }}
+                onDragEnd={() => {
+                    stopAutoScroll();
+                    if (scrollContainerRef.current) {
+                        savedScrollTopRef.current = scrollContainerRef.current.scrollTop;
+                    }
+                    setDraggingTask(null);
+                    setDragPreviewDate(null);
+                }}
                 style={{
                     position: 'absolute',
                     left: `calc(${leftPercent}% + 4px)`,
@@ -513,7 +639,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 }}
                 title={task.title}
                 onClick={(e) => {
-                    if (!isResizing && !isDraggingThis) {
+                    if (!isResizing && !isDraggingThis && !justFinishedResizingRef.current) {
                         e.stopPropagation();
                         onTaskClick?.(task);
                     }
@@ -539,7 +665,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 >
                     {isStart && (
                         <span style={{
-                            fontSize: '16px', fontWeight: 600, color: '#1e293b',
+                            fontSize: '20px', fontWeight: 600, color: '#1e293b',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                             {task.starred && <span style={{ marginRight: '2px' }}>{'\u2605'}</span>}
@@ -629,7 +755,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                             e.dataTransfer.effectAllowed = 'move';
                                             e.dataTransfer.setData('text/plain', task.id);
                                         }}
-                                        onDragEnd={() => { setDraggingTask(null); setDragPreviewDate(null); }}
+                                        onDragEnd={() => {
+                                            stopAutoScroll();
+                                            if (scrollContainerRef.current) {
+                                                savedScrollTopRef.current = scrollContainerRef.current.scrollTop;
+                                            }
+                                            setDraggingTask(null);
+                                            setDragPreviewDate(null);
+                                        }}
                                         onClick={() => onTaskClick?.(task)}
                                         style={{
                                             fontSize: '20px', padding: '4px 16px',
@@ -655,7 +788,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 {/* Navigation: ◀ Today ▶ */}
                 <button
                     type="button"
-                    onClick={() => scrollToMonth(prevMonth.year, prevMonth.month)}
+                    onClick={() => scrollToPrevMonthBoundary()}
                     style={{
                         width: '44px', height: '44px', borderRadius: '50%', border: 'none',
                         cursor: 'pointer', fontSize: '18px', lineHeight: 1,
@@ -682,7 +815,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 </button>
                 <button
                     type="button"
-                    onClick={() => scrollToMonth(nextMonth.year, nextMonth.month)}
+                    onClick={() => scrollToNextMonthBoundary()}
                     style={{
                         width: '44px', height: '44px', borderRadius: '50%', border: 'none',
                         cursor: 'pointer', fontSize: '18px', lineHeight: 1,
@@ -711,7 +844,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                             key={i}
                             style={{
                                 padding: '12px 8px', textAlign: 'center',
-                                fontSize: '16px', fontWeight: '600',
+                                fontSize: '20px', fontWeight: '600',
                                 color: i === 0 ? theme.sunday : i === 6 ? theme.saturday : theme.text,
                             }}
                         >
@@ -725,12 +858,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                     ref={scrollContainerRef}
                     className="calendar-scroll-hide"
                     style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, position: 'relative', scrollbarWidth: 'none' } as React.CSSProperties}
+                    onDragOver={(e) => {
+                        // Auto-scroll when dragging near top/bottom edges
+                        if (draggingTask) {
+                            updateAutoScroll(e.clientY);
+                        }
+                    }}
+                    onDragLeave={() => stopAutoScroll()}
+                    onDrop={() => stopAutoScroll()}
+                    onDragEnd={() => stopAutoScroll()}
                 >
                     {allWeeks.map((week, weekIndex) => {
                         const weekNum = getWeek(week[0]);
                         const segments = allSegments[weekIndex] || [];
                         const maxLane = segments.length > 0 ? Math.max(...segments.map(s => s.lane)) : -1;
-                        const rowHeight = Math.max(140, 50 + (maxLane + 1) * 32);
+                        const rowHeight = Math.max(140, 58 + (maxLane + 1) * 40);
 
                         return (
                             <React.Fragment key={weekIndex}>
@@ -748,7 +890,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                     {/* Week Number */}
                                     <div style={{
                                         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-                                        paddingTop: '12px', fontSize: '12px',
+                                        paddingTop: '12px', fontSize: '20px',
                                         color: theme.textFaded, fontWeight: '500',
                                     }}>
                                         {weekNum}
@@ -811,14 +953,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                                             minWidth: '36px', height: '36px', padding: '0 8px',
                                                             backgroundColor: theme.today, borderRadius: '18px',
-                                                            color: '#FFFFFF', fontSize: '18px', fontWeight: '600',
+                                                            color: '#FFFFFF', fontSize: '20px', fontWeight: '600',
                                                         }}>
                                                             {dayLabel}
                                                         </span>
                                                     ) : (
                                                         <span style={{
                                                             display: 'inline-flex', alignItems: 'center', height: '36px',
-                                                            color: textColor, fontSize: '18px', fontWeight: '600',
+                                                            color: textColor, fontSize: '20px', fontWeight: '600',
                                                         }}>
                                                             {dayLabel}
                                                         </span>
@@ -843,6 +985,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                 const dayIndex = Math.floor(x / dayWidth);
                                                 const targetDay = week[Math.max(0, Math.min(6, dayIndex))];
                                                 if (!dragPreviewDate || !isSameDay(dragPreviewDate, targetDay)) {
+                                                    if (scrollContainerRef.current) {
+                                                        savedScrollTopRef.current = scrollContainerRef.current.scrollTop;
+                                                    }
                                                     setDragPreviewDate(targetDay);
                                                 }
                                             }

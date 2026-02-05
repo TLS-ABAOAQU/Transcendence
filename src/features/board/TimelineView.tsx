@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { format, addDays, addMonths, subMonths, differenceInDays, startOfDay, parseISO, eachDayOfInterval, isSameDay } from 'date-fns';
 import type { Task } from '../../types';
 
@@ -248,48 +248,15 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         taskBg: isDarkMode ? '#334155' : '#e2e8f0',
     }), [isDarkMode]);
 
-    // Calculate date range based on tasks and view mode
+    // Fixed date range (±12 months from today), independent of task data
     const dateRange = useMemo(() => {
         const today = startOfDay(new Date());
-
-        // Find earliest start date and latest due date from tasks
-        let earliestStart: Date | null = null;
-        let latestEnd: Date | null = null;
-
-        tasks.forEach(task => {
-            if (task.startDate) {
-                const start = parseISO(task.startDate);
-                if (!earliestStart || start < earliestStart) {
-                    earliestStart = start;
-                }
-            }
-            if (task.dueDate) {
-                const end = parseISO(task.dueDate);
-                if (!latestEnd || end > latestEnd) {
-                    latestEnd = end;
-                }
-            }
-        });
-
-        // Default to today if no task dates
-        const baseStart = earliestStart || today;
-        const baseEnd = latestEnd || today;
-
-        // Calculate padding based on view mode
-        let paddingMonths: number;
-        if (viewRange === 'week') {
-            paddingMonths = 1;
-        } else if (viewRange === 'month') {
-            paddingMonths = 3;
-        } else {
-            paddingMonths = 12; // 1 year for 3months view
-        }
-
         return {
-            start: subMonths(baseStart, paddingMonths),
-            end: addMonths(baseEnd, paddingMonths),
+            start: subMonths(today, 12),
+            end: addMonths(today, 12),
         };
-    }, [tasks, viewRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Generate days array from date range
     const days = useMemo(() => {
@@ -315,6 +282,89 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
     // Scroll container ref
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const savedScrollLeftRef = useRef<number | null>(null);
+    const autoScrollTimerRef = useRef<number | null>(null);
+
+    // Save scroll position before task updates, restore after re-render
+    useLayoutEffect(() => {
+        if (savedScrollLeftRef.current !== null && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = savedScrollLeftRef.current;
+            savedScrollLeftRef.current = null;
+        }
+    });
+
+    // Wrap onTaskUpdate to preserve scroll position
+    const stableTaskUpdate = useCallback((taskId: string, updates: Record<string, unknown>) => {
+        if (!onTaskUpdate) return;
+        if (scrollContainerRef.current) {
+            savedScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
+        }
+        onTaskUpdate(taskId, updates);
+    }, [onTaskUpdate]);
+
+    // Auto-scroll: scroll timeline when dragging near left/right edges
+    const autoScroll = useCallback((clientX: number) => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const hotZone = 80;
+        const maxSpeed = 12;
+        // Account for the 200px task name column
+        const scrollAreaLeft = rect.left + 200;
+        const scrollAreaRight = rect.right;
+
+        if (clientX < scrollAreaLeft + hotZone && clientX > scrollAreaLeft) {
+            const distance = scrollAreaLeft + hotZone - clientX;
+            const speed = Math.min(maxSpeed, Math.ceil((distance / hotZone) * maxSpeed));
+            container.scrollLeft -= speed;
+        } else if (clientX > scrollAreaRight - hotZone) {
+            const distance = clientX - (scrollAreaRight - hotZone);
+            const speed = Math.min(maxSpeed, Math.ceil((distance / hotZone) * maxSpeed));
+            container.scrollLeft += speed;
+        }
+    }, []);
+
+    const startAutoScroll = useCallback((clientX: number) => {
+        if (autoScrollTimerRef.current !== null) {
+            cancelAnimationFrame(autoScrollTimerRef.current);
+        }
+        const tick = () => {
+            autoScroll(clientX);
+            autoScrollTimerRef.current = requestAnimationFrame(tick);
+        };
+        autoScrollTimerRef.current = requestAnimationFrame(tick);
+    }, [autoScroll]);
+
+    const updateAutoScroll = useCallback((clientX: number) => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const hotZone = 80;
+        const scrollAreaLeft = rect.left + 200;
+        const scrollAreaRight = rect.right;
+        const inHotZone = (clientX < scrollAreaLeft + hotZone && clientX > scrollAreaLeft) || clientX > scrollAreaRight - hotZone;
+
+        if (inHotZone) {
+            if (autoScrollTimerRef.current !== null) {
+                cancelAnimationFrame(autoScrollTimerRef.current);
+            }
+            startAutoScroll(clientX);
+        } else {
+            stopAutoScroll();
+        }
+    }, [startAutoScroll]);
+
+    const stopAutoScroll = useCallback(() => {
+        if (autoScrollTimerRef.current !== null) {
+            cancelAnimationFrame(autoScrollTimerRef.current);
+            autoScrollTimerRef.current = null;
+        }
+    }, []);
+
+    // Clean up auto-scroll timer on unmount
+    useEffect(() => {
+        return () => stopAutoScroll();
+    }, [stopAutoScroll]);
 
     // Track visible year/month label from leftmost visible date
     const [headerLabel, setHeaderLabel] = useState('');
@@ -456,6 +506,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         const handleMouseMove = (e: MouseEvent) => {
             if (!scrollContainerRef.current || !resizing) return;
 
+            // Auto-scroll when near edges during resize/drag
+            updateAutoScroll(e.clientX);
+
             const containerRect = scrollContainerRef.current.getBoundingClientRect();
             const scrollLeft = scrollContainerRef.current.scrollLeft;
             const newDate = calculateDateFromX(e.clientX, containerRect, scrollLeft);
@@ -492,17 +545,19 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                 }
             }
 
-            // Update task via prop callback
-            if (onTaskUpdate) {
-                onTaskUpdate(resizing.taskId, {
-                    startDate: format(newStart, 'yyyy-MM-dd'),
-                    dueDate: format(newEnd, 'yyyy-MM-dd'),
-                });
-            }
+            // Update task via stableTaskUpdate to preserve scroll position
+            stableTaskUpdate(resizing.taskId, {
+                startDate: format(newStart, 'yyyy-MM-dd'),
+                dueDate: format(newEnd, 'yyyy-MM-dd'),
+            });
         };
 
         const handleMouseUp = () => {
+            stopAutoScroll();
             justFinishedResizing.current = true;
+            if (scrollContainerRef.current) {
+                savedScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
+            }
             setResizing(null);
             // Reset the flag after a short delay to allow click event to be ignored
             setTimeout(() => {
@@ -517,7 +572,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [resizing, calculateDateFromX, onTaskUpdate, timelineTasks]);
+    }, [resizing, calculateDateFromX, stableTaskUpdate, timelineTasks, updateAutoScroll, stopAutoScroll]);
 
     return (
         <div style={{
@@ -569,30 +624,29 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         gap: '2px',
                     }}>
                         {([
-                            { range: 'week' as ViewRange, title: 'Week', icon: (
+                            { range: 'week' as ViewRange, icon: (
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     <line x1="8" y1="11" x2="14" y2="11" /><line x1="11" y1="8" x2="11" y2="14" />
                                 </svg>
                             )},
-                            { range: 'month' as ViewRange, title: 'Month', icon: (
+                            { range: 'month' as ViewRange, icon: (
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                     <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
                                     <line x1="3" y1="10" x2="21" y2="10" />
                                 </svg>
                             )},
-                            { range: '3months' as ViewRange, title: '3 Months', icon: (
+                            { range: '3months' as ViewRange, icon: (
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     <line x1="8" y1="11" x2="14" y2="11" />
                                 </svg>
                             )},
-                        ]).map(({ range, title, icon }) => (
+                        ]).map(({ range, icon }) => (
                             <button
                                 key={range}
                                 onClick={() => setViewRange(range)}
-                                title={title}
                                 style={{
                                     padding: '14px 26px',
                                     borderRadius: '30px',
