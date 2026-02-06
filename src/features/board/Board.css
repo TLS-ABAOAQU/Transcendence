@@ -107,6 +107,7 @@
     cursor: grab;
     position: relative;
     transition: border-color 0.2s;
+    padding-left: 0.75rem !important;
     padding-right: 0.75rem !important;
     padding-top: 0.8em !important;
     padding-bottom: 0.8em !important;
@@ -125,6 +126,7 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 0.5rem;
+    text-align: left;
 }
 
 .priority-bar {
@@ -132,12 +134,12 @@
     left: 0;
     top: 0;
     bottom: 0;
-    width: 20px;
+    width: 16px;
     border-radius: 4px 0 0 4px;
 }
 
 .task-card-content {
-    padding-left: 16px;
+    padding-left: 8px;
 }
 
 /* Star toggle on task cards */
@@ -163,7 +165,7 @@
 
 /* Title-only normal mode cards */
 .task-card-title-only {
-    padding: 0 0.75rem 0 1.5rem !important;
+    padding: 0 0.75rem 0 0.75rem !important;
 }
 
 .task-card-title-only .task-card-content {
@@ -181,7 +183,7 @@
 
 /* Compact mode cards */
 .task-card-compact {
-    padding: 0 0.75rem 0 1.5rem !important;
+    padding: 0 0.75rem 0 0.75rem !important;
 }
 
 .task-card-compact .task-card-content {
@@ -203,6 +205,7 @@
     white-space: nowrap;
     min-width: 0;
     flex: 1;
+    text-align: left;
 }
 
 .task-description {
@@ -401,4 +404,11 @@
 /* Hide calendar scrollbar */
 .calendar-scroll-hide::-webkit-scrollbar {
     display: none;
+}
+
+/* Disable focus on date/time picker icons */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    pointer-events: none;
+    opacity: 0.6;
 }

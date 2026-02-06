@@ -10,6 +10,8 @@ interface ProjectContextType {
     updateTaskStatus: (projectId: string, taskId: string, newStatus: Status) => void;
     updateProject: (id: string, updates: { name: string; theme: string; startDate?: string; deadline?: string }) => void;
     updateTask: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
+    updateTaskWithoutHistory: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
+    updateTaskMergeHistory: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
     deleteProject: (id: string) => void;
     deleteTask: (projectId: string, taskId: string) => void;
     reorderProjects: (newOrder: Project[]) => void;
@@ -25,7 +27,7 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [projects, setProjects, { undo, redo, canUndo, canRedo }] = useLocalStorageWithHistory<Project[]>('ppm-projects', []);
+    const [projects, setProjects, { undo, redo, canUndo, canRedo, setValueWithoutHistory, setValueMergeHistory }] = useLocalStorageWithHistory<Project[]>('ppm-projects', []);
     const [activeProjectId, setActiveProjectId] = React.useState<string | null>(() => {
         try {
             const item = window.localStorage.getItem('ppm-active-project');
@@ -124,6 +126,32 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
         );
     };
 
+    // Update task without creating history entry (for drag preview)
+    const updateTaskWithoutHistory = (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
+        setValueWithoutHistory((prev) =>
+            prev.map((p) => {
+                if (p.id !== projectId) return p;
+                return {
+                    ...p,
+                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+                };
+            })
+        );
+    };
+
+    // Update task and merge into the last history entry (for date confirmation after drag)
+    const updateTaskMergeHistory = (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
+        setValueMergeHistory((prev) =>
+            prev.map((p) => {
+                if (p.id !== projectId) return p;
+                return {
+                    ...p,
+                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+                };
+            })
+        );
+    };
+
     const deleteProject = (id: string) => {
         setProjects((prev) => prev.filter((p) => p.id !== id));
         if (activeProjectId === id) setActiveProjectId(null);
@@ -173,6 +201,8 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
                 addTask,
                 updateTaskStatus,
                 updateTask,
+                updateTaskWithoutHistory,
+                updateTaskMergeHistory,
                 deleteProject,
                 deleteTask,
                 reorderProjects,

@@ -31,7 +31,7 @@ const COLUMNS: { id: Status; title: string }[] = [
 ];
 
 export const Board: React.FC = () => {
-    const { projects, activeProjectId, setActiveProject, addTask, updateTask, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
+    const { projects, activeProjectId, setActiveProject, addTask, updateTask, updateTaskWithoutHistory, updateTaskMergeHistory, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
     const project = projects.find((p) => p.id === activeProjectId);
     const [isAdding, setIsAdding] = useState(false);
 
@@ -42,7 +42,9 @@ export const Board: React.FC = () => {
     const [editUrl, setEditUrl] = useState('');
     const [editUrl2, setEditUrl2] = useState('');
     const [editStartDate, setEditStartDate] = useState('');
+    const [editStartTime, setEditStartTime] = useState('');
     const [editDueDate, setEditDueDate] = useState('');
+    const [editDueTime, setEditDueTime] = useState('');
     const [editPriority, setEditPriority] = useState<Priority>('medium');
     const [editStarred, setEditStarred] = useState(false);
     const [editTags, setEditTags] = useState<string[]>([]);
@@ -67,7 +69,9 @@ export const Board: React.FC = () => {
         url: string;
         url2: string;
         startDate: string;
+        startTime: string;
         dueDate: string;
+        dueTime: string;
         priority: Priority;
         starred: boolean;
         tags: string[];
@@ -83,12 +87,14 @@ export const Board: React.FC = () => {
         url: editUrl,
         url2: editUrl2,
         startDate: editStartDate,
+        startTime: editStartTime,
         dueDate: editDueDate,
+        dueTime: editDueTime,
         priority: editPriority,
         starred: editStarred,
         tags: [...editTags],
         checklist: editChecklist.map(item => ({ ...item })),
-    }), [editTitle, editDesc, editUrl, editUrl2, editStartDate, editDueDate, editPriority, editStarred, editTags, editChecklist]);
+    }), [editTitle, editDesc, editUrl, editUrl2, editStartDate, editStartTime, editDueDate, editDueTime, editPriority, editStarred, editTags, editChecklist]);
 
     const saveModalState = useCallback((overrides?: Partial<ModalState>) => {
         const currentState = getCurrentModalState();
@@ -113,7 +119,9 @@ export const Board: React.FC = () => {
         setEditUrl(state.url);
         setEditUrl2(state.url2);
         setEditStartDate(state.startDate);
+        setEditStartTime(state.startTime);
         setEditDueDate(state.dueDate);
+        setEditDueTime(state.dueTime);
         setEditPriority(state.priority);
         setEditStarred(state.starred);
         setEditTags([...state.tags]);
@@ -236,10 +244,15 @@ export const Board: React.FC = () => {
     // Modal interaction refs
     const mouseDownInsideModal = useRef(false);
 
+    // Focus restoration ref
+    const lastEditedTaskIdRef = useRef<string | null>(null);
+
     // Focus management refs
     const titleRef = useRef<HTMLInputElement>(null);
     const startDateRef = useRef<HTMLInputElement>(null);
+    const startTimeRef = useRef<HTMLInputElement>(null);
     const dueDateRef = useRef<HTMLInputElement>(null);
+    const dueTimeRef = useRef<HTMLInputElement>(null);
     const todayBtnRef = useRef<HTMLButtonElement>(null);
     const resetDateRef = useRef<HTMLButtonElement>(null);
     const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -256,6 +269,10 @@ export const Board: React.FC = () => {
     const startDateSegmentRef = useRef(0);
     const dueDateSegmentRef = useRef(0);
 
+    // Time input segment tracking (0=hour, 1=minute)
+    const startTimeSegmentRef = useRef(0);
+    const dueTimeSegmentRef = useRef(0);
+
     // Computed project-wide tags
     const projectTags = useMemo(() => {
         if (!project) return [];
@@ -266,6 +283,14 @@ export const Board: React.FC = () => {
 
     // DxND State
     const [activeId, setActiveId] = useState<string | null>(null);
+
+    // Date confirmation modal state (for drag-and-drop)
+    const [dateConfirmModal, setDateConfirmModal] = useState<{
+        taskId: string;
+        type: 'startDate' | 'dueDate' | 'resetStartDate';
+        oldDate: string;
+        targetStatus: Status;
+    } | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -281,7 +306,9 @@ export const Board: React.FC = () => {
         setEditUrl('');
         setEditUrl2('');
         setEditStartDate('');
+        setEditStartTime('');
         setEditDueDate('');
+        setEditDueTime('');
         setEditPriority('medium');
         setEditStarred(false);
         setEditTags([]);
@@ -291,7 +318,7 @@ export const Board: React.FC = () => {
         setShowTagSuggestions(false);
         const initialState: ModalState = {
             title: '', desc: '', url: '', url2: '',
-            startDate: '', dueDate: '', priority: 'medium',
+            startDate: '', startTime: '', dueDate: '', dueTime: '', priority: 'medium',
             starred: false, tags: [], checklist: [],
         };
         modalHistoryRef.current = [initialState];
@@ -301,6 +328,11 @@ export const Board: React.FC = () => {
 
     const handleSaveNewTask = () => {
         if (!editTitle.trim()) return;
+        // Validate: Due Date must be >= Start Date
+        if (editStartDate && editDueDate && editDueDate < editStartDate) {
+            alert('Due Date は Start Date と同じか、それより後の日付にしてください。');
+            return;
+        }
         addTask(project.id, {
             title: editTitle,
             description: editDesc,
@@ -309,7 +341,9 @@ export const Board: React.FC = () => {
             url: editUrl,
             url2: editUrl2,
             startDate: editStartDate,
+            startTime: editStartTime,
             dueDate: editDueDate,
+            dueTime: editDueTime,
             starred: editStarred,
             tags: editTags,
             checklist: editChecklist,
@@ -318,13 +352,16 @@ export const Board: React.FC = () => {
     };
 
     const openTaskModal = (task: Task) => {
+        lastEditedTaskIdRef.current = task.id;
         setEditingTask(task);
         setEditTitle(task.title);
         setEditDesc(task.description);
         setEditUrl(task.url || '');
         setEditUrl2(task.url2 || '');
         setEditStartDate(task.startDate || '');
+        setEditStartTime(task.startTime || '');
         setEditDueDate(task.dueDate || '');
+        setEditDueTime(task.dueTime || '');
         setEditPriority(task.priority);
         setEditStarred(task.starred || false);
         setEditTags(task.tags || []);
@@ -338,7 +375,9 @@ export const Board: React.FC = () => {
             url: task.url || '',
             url2: task.url2 || '',
             startDate: task.startDate || '',
+            startTime: task.startTime || '',
             dueDate: task.dueDate || '',
+            dueTime: task.dueTime || '',
             priority: task.priority,
             starred: task.starred || false,
             tags: task.tags || [],
@@ -348,38 +387,120 @@ export const Board: React.FC = () => {
         modalHistoryIndexRef.current = 0;
     };
 
-    // Auto-save and close (used by overlay click, Escape, Save button)
-    const closeTaskModal = () => {
-        if (editingTask && editTitle.trim()) {
-            updateTask(project.id, editingTask.id, {
-                title: editTitle,
-                description: editDesc,
-                url: editUrl,
-                url2: editUrl2,
-                startDate: editStartDate,
-                dueDate: editDueDate,
-                priority: editPriority,
-                starred: editStarred,
-                tags: editTags,
-                checklist: editChecklist,
+    // Restore focus to the last edited task card
+    const restoreFocusToTaskCard = () => {
+        if (lastEditedTaskIdRef.current) {
+            requestAnimationFrame(() => {
+                const taskCard = document.querySelector(`[data-task-id="${lastEditedTaskIdRef.current}"]`) as HTMLElement;
+                if (taskCard) {
+                    taskCard.focus();
+                }
             });
         }
-        setEditingTask(null);
     };
 
-    // Cancel: discard changes and close
-    const cancelTaskModal = () => {
+    // Arrow key navigation between task cards
+    const handleArrowKeyNavigation = (key: string, currentColumnId: Status, currentIndex: number) => {
+        const columnOrder: Status[] = ['todo', 'standby', 'in-progress', 'done'];
+        const currentColIdx = columnOrder.indexOf(currentColumnId);
+
+        if (key === 'ArrowUp' || key === 'ArrowDown') {
+            // Move within the same column
+            const newIndex = key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1;
+            const targetCard = document.querySelector(`[data-column-id="${currentColumnId}"][data-task-index="${newIndex}"]`) as HTMLElement;
+            if (targetCard) {
+                targetCard.focus();
+            }
+        } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+            // Move to adjacent column
+            const newColIdx = key === 'ArrowLeft' ? currentColIdx - 1 : currentColIdx + 1;
+            if (newColIdx >= 0 && newColIdx < columnOrder.length) {
+                const targetColumnId = columnOrder[newColIdx];
+                // Try to focus the same index, or the last card if index is too high, or the first card
+                let targetCard = document.querySelector(`[data-column-id="${targetColumnId}"][data-task-index="${currentIndex}"]`) as HTMLElement;
+                if (!targetCard) {
+                    // Try to find the last card in the target column
+                    const allCardsInColumn = document.querySelectorAll(`[data-column-id="${targetColumnId}"]`);
+                    if (allCardsInColumn.length > 0) {
+                        targetCard = allCardsInColumn[Math.min(currentIndex, allCardsInColumn.length - 1)] as HTMLElement;
+                    }
+                }
+                if (targetCard) {
+                    targetCard.focus();
+                }
+            }
+        }
+    };
+
+    // Check if there are unsaved changes
+    const hasUnsavedChanges = (): boolean => {
+        if (!editingTask) return false;
+        return (
+            editTitle !== editingTask.title ||
+            editDesc !== editingTask.description ||
+            editUrl !== (editingTask.url || '') ||
+            editUrl2 !== (editingTask.url2 || '') ||
+            editStartDate !== (editingTask.startDate || '') ||
+            editStartTime !== (editingTask.startTime || '') ||
+            editDueDate !== (editingTask.dueDate || '') ||
+            editDueTime !== (editingTask.dueTime || '') ||
+            editPriority !== editingTask.priority ||
+            editStarred !== (editingTask.starred || false) ||
+            JSON.stringify(editTags) !== JSON.stringify(editingTask.tags || []) ||
+            JSON.stringify(editChecklist) !== JSON.stringify(editingTask.checklist || [])
+        );
+    };
+
+    // Close without saving (discard changes)
+    const closeTaskModal = () => {
         setEditingTask(null);
+        restoreFocusToTaskCard();
+    };
+
+    // Close with unsaved changes confirmation
+    const closeTaskModalWithConfirm = () => {
+        if (hasUnsavedChanges()) {
+            if (!confirm('未保存の変更があります。破棄しますか？')) {
+                return; // User cancelled, don't close
+            }
+        }
+        closeTaskModal();
+    };
+
+    // Cancel: discard changes and close (same as closeTaskModal now)
+    const cancelTaskModal = () => {
+        closeTaskModalWithConfirm();
     };
 
     const handleSaveTask = () => {
         if (!editingTask || !editTitle.trim()) return;
-        closeTaskModal();
+        // Validate: Due Date must be >= Start Date
+        if (editStartDate && editDueDate && editDueDate < editStartDate) {
+            alert('Due Date は Start Date と同じか、それより後の日付にしてください。');
+            return;
+        }
+        updateTask(project.id, editingTask.id, {
+            title: editTitle,
+            description: editDesc,
+            url: editUrl,
+            url2: editUrl2,
+            startDate: editStartDate,
+            startTime: editStartTime,
+            dueDate: editDueDate,
+            dueTime: editDueTime,
+            priority: editPriority,
+            starred: editStarred,
+            tags: editTags,
+            checklist: editChecklist,
+        });
+        setEditingTask(null);
+        restoreFocusToTaskCard();
     };
 
     const handleDeleteTask = () => {
         if (!editingTask || !confirm('Delete this task?')) return;
         deleteTask(project.id, editingTask.id);
+        lastEditedTaskIdRef.current = null; // Don't try to focus deleted task
         setEditingTask(null);
     };
 
@@ -458,12 +579,23 @@ export const Board: React.FC = () => {
         }
     };
 
+    const getTimeSegmentFromSelection = (el: HTMLInputElement): number => {
+        try {
+            const pos = el.selectionStart;
+            if (pos === null) return 0;
+            if (pos <= 2) return 0;  // hour
+            return 1;                // minute
+        } catch {
+            return 0;
+        }
+    };
+
     // === Focus Navigation ===
 
     const getFocusOrder = useCallback((): React.RefObject<HTMLElement | null>[] => {
         const order: React.RefObject<HTMLElement | null>[] = [
             titleRef, tagsInputRef, descriptionRef, checklistInputRef,
-            todayBtnRef, startDateRef, dueDateRef, resetDateRef,
+            todayBtnRef, startDateRef, startTimeRef, dueDateRef, dueTimeRef, resetDateRef,
             urlRef, url2Ref,
         ];
         if (editingTask) order.push(deleteBtnRef);
@@ -508,6 +640,8 @@ export const Board: React.FC = () => {
     handleSaveNewTaskRef.current = handleSaveNewTask;
     const closeTaskModalRef = useRef(closeTaskModal);
     closeTaskModalRef.current = closeTaskModal;
+    const closeTaskModalWithConfirmRef = useRef(closeTaskModalWithConfirm);
+    closeTaskModalWithConfirmRef.current = closeTaskModalWithConfirm;
 
     // Global modal keyboard handler: Cmd+Enter to save, Escape to close
     useEffect(() => {
@@ -524,9 +658,9 @@ export const Board: React.FC = () => {
                 }
                 return;
             }
-            // Escape = Close (use ref to always get latest edit state for auto-save)
+            // Escape = Close with confirmation if unsaved changes
             if (e.key === 'Escape') {
-                if (editingTask) closeTaskModalRef.current();
+                if (editingTask) closeTaskModalWithConfirmRef.current();
                 if (isAdding) setIsAdding(false);
                 return;
             }
@@ -613,7 +747,15 @@ export const Board: React.FC = () => {
     // Start Date: ArrowLeft/Right for segment navigation, ArrowUp/Down native
     const handleStartDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.nativeEvent.isComposing) return;
-        if (e.key === 'ArrowLeft') {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                focusPrev(startDateRef);
+            } else {
+                startTimeRef.current?.focus();
+                startTimeSegmentRef.current = 0;
+            }
+        } else if (e.key === 'ArrowLeft') {
             if (startDateSegmentRef.current === 0) {
                 e.preventDefault();
                 focusPrev(startDateRef);
@@ -623,46 +765,133 @@ export const Board: React.FC = () => {
         } else if (e.key === 'ArrowRight') {
             if (startDateSegmentRef.current === 2) {
                 e.preventDefault();
-                dueDateRef.current?.focus();
-                dueDateSegmentRef.current = 0;
+                startTimeRef.current?.focus();
+                startTimeSegmentRef.current = 0;
             } else {
                 startDateSegmentRef.current++;
             }
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            dueDateRef.current?.focus();
+            startTimeRef.current?.focus();
+            startTimeSegmentRef.current = 0;
         }
         // ArrowUp/ArrowDown: native date behavior (no interception)
     };
 
-    // Due Date: ArrowLeft/Right for segment navigation, ArrowUp/Down native
-    const handleDueDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Start Time: Tab and Arrow navigation with segment tracking
+    const handleStartTimeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.nativeEvent.isComposing) return;
-        if (e.key === 'ArrowLeft') {
-            if (dueDateSegmentRef.current === 0) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                startDateRef.current?.focus();
+                startDateSegmentRef.current = 0;
+            } else {
+                dueDateRef.current?.focus();
+                dueDateSegmentRef.current = 0;
+            }
+        } else if (e.key === 'ArrowLeft') {
+            if (startTimeSegmentRef.current === 0) {
                 e.preventDefault();
                 startDateRef.current?.focus();
-                startDateSegmentRef.current = 2;
+                startDateSegmentRef.current = 0;
+            } else {
+                startTimeSegmentRef.current--;
+            }
+        } else if (e.key === 'ArrowRight') {
+            if (startTimeSegmentRef.current === 1) {
+                e.preventDefault();
+                dueDateRef.current?.focus();
+                dueDateSegmentRef.current = 0;
+            } else {
+                startTimeSegmentRef.current++;
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            dueDateRef.current?.focus();
+            dueDateSegmentRef.current = 0;
+        }
+    };
+
+    // Due Date: Arrow navigation with segment tracking
+    const handleDueDateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                startTimeRef.current?.focus();
+                startTimeSegmentRef.current = 0;
+            } else {
+                dueTimeRef.current?.focus();
+                dueTimeSegmentRef.current = 0;
+            }
+        } else if (e.key === 'ArrowLeft') {
+            if (dueDateSegmentRef.current === 0) {
+                e.preventDefault();
+                startTimeRef.current?.focus();
+                startTimeSegmentRef.current = 0;
             } else {
                 dueDateSegmentRef.current--;
             }
         } else if (e.key === 'ArrowRight') {
             if (dueDateSegmentRef.current === 2) {
                 e.preventDefault();
-                resetDateRef.current?.focus();
+                dueTimeRef.current?.focus();
+                dueTimeSegmentRef.current = 0;
             } else {
                 dueDateSegmentRef.current++;
             }
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            urlRef.current?.focus();
+            dueTimeRef.current?.focus();
+            dueTimeSegmentRef.current = 0;
         }
         // ArrowUp/ArrowDown: native date behavior (no interception)
     };
 
+    // Due Time: Tab and Arrow navigation with segment tracking
+    const handleDueTimeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                dueDateRef.current?.focus();
+                dueDateSegmentRef.current = 0;
+            } else {
+                focusNext(dueTimeRef);
+            }
+        } else if (e.key === 'ArrowLeft') {
+            if (dueTimeSegmentRef.current === 0) {
+                e.preventDefault();
+                dueDateRef.current?.focus();
+                dueDateSegmentRef.current = 0;
+            } else {
+                dueTimeSegmentRef.current--;
+            }
+        } else if (e.key === 'ArrowRight') {
+            if (dueTimeSegmentRef.current === 1) {
+                e.preventDefault();
+                focusNext(dueTimeRef);
+            } else {
+                dueTimeSegmentRef.current++;
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            focusNext(dueTimeRef);
+        }
+    };
+
     // Reset button: arrow navigation (Up → checklist, Left → prev, Down/Right → next)
     const handleResetKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                dueTimeRef.current?.focus();
+                dueTimeSegmentRef.current = 0;
+            } else {
+                focusNext(resetDateRef);
+            }
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
             e.preventDefault();
             focusNext(resetDateRef);
         } else if (e.key === 'ArrowUp') {
@@ -670,7 +899,15 @@ export const Board: React.FC = () => {
             checklistInputRef.current?.focus();
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            focusPrev(resetDateRef);
+            dueTimeRef.current?.focus();
+            dueTimeSegmentRef.current = 0;
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            setEditStartDate('');
+            setEditStartTime('');
+            setEditDueDate('');
+            setEditDueTime('');
+            saveModalState({ startDate: '', startTime: '', dueDate: '', dueTime: '' });
         }
     };
 
@@ -801,43 +1038,17 @@ export const Board: React.FC = () => {
         }
     };
 
-    // Auto-date logic when status changes (called during dragOver - no confirm dialogs)
-    const pendingDueDateConfirm = useRef<{ taskId: string; oldDueDate: string } | null>(null);
-
-    const handleStatusChange = useCallback((taskId: string, newStatus: Status) => {
-        const task = project.tasks.find(t => t.id === taskId);
-        if (!task) return;
-        if (task.status === newStatus) return;
-
-        const today = new Date().toISOString().split('T')[0];
-        const updates: Partial<Omit<Task, 'id' | 'createdAt'>> = { status: newStatus };
-
-        // Auto-set startDate when entering standby or in-progress
-        if ((newStatus === 'standby' || newStatus === 'in-progress') && !task.startDate) {
-            updates.startDate = today;
-        }
-
-        // Auto-set dueDate when entering done
-        if (newStatus === 'done') {
-            if (!task.dueDate) {
-                updates.dueDate = today;
-            } else if (task.dueDate !== today) {
-                // Defer confirm to handleDragEnd
-                pendingDueDateConfirm.current = { taskId, oldDueDate: task.dueDate };
-            }
-        } else {
-            // Clear pending confirm if moved away from done
-            if (pendingDueDateConfirm.current?.taskId === taskId) {
-                pendingDueDateConfirm.current = null;
-            }
-        }
-
-        updateTask(project.id, taskId, updates);
-    }, [project, updateTask]);
+    // Track original status at drag start for proper undo
+    const dragStartState = useRef<{ taskId: string; originalStatus: Status } | null>(null);
 
     // DxND Handlers
     const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as string);
+        const taskId = event.active.id as string;
+        const task = project.tasks.find(t => t.id === taskId);
+        if (task) {
+            dragStartState.current = { taskId, originalStatus: task.status };
+        }
+        setActiveId(taskId);
     };
 
     const handleDragOver = (event: DragOverEvent) => {
@@ -847,41 +1058,149 @@ export const Board: React.FC = () => {
         const activeId = active.id as string;
         const overId = over.id as string;
 
-        // Find the tasks
         const activeTask = project.tasks.find(t => t.id === activeId);
         const overTask = project.tasks.find(t => t.id === overId);
+        const isOverColumn = COLUMNS.some(c => c.id === overId);
 
         if (!activeTask) return;
 
-        // Moving between columns
-        const isOverColumn = COLUMNS.some(c => c.id === overId);
+        let targetStatus: Status | null = null;
+        if (isOverColumn) {
+            targetStatus = overId as Status;
+        } else if (overTask) {
+            targetStatus = overTask.status;
+        }
 
-        if (activeTask && isOverColumn) {
-            const overColumnId = overId as Status;
-            if (activeTask.status !== overColumnId) {
-                // We are dragging over an empty column or container
-                // Update status immediately for visual feedback
-                handleStatusChange(activeId, overColumnId);
-            }
-        } else if (activeTask && overTask && activeTask.status !== overTask.status) {
-            // Dragging over a task in a different column
-            // Change status of active task to match over task
-            handleStatusChange(activeId, overTask.status);
+        // Update status without history for visual preview
+        if (targetStatus && activeTask.status !== targetStatus) {
+            updateTaskWithoutHistory(project.id, activeId, { status: targetStatus });
         }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
+        const originalState = dragStartState.current;
+        dragStartState.current = null;
         setActiveId(null);
 
-        if (!over) return;
+        if (!over) {
+            // Cancelled - restore original status
+            if (originalState) {
+                updateTaskWithoutHistory(project.id, originalState.taskId, { status: originalState.originalStatus });
+            }
+            return;
+        }
 
         const activeId = active.id as string;
         const overId = over.id as string;
 
-        if (activeId !== overId) {
-            // Reordering within same list (status update handled in DragOver)
-            // We need to reorder the whole project.tasks array
+        const activeTask = project.tasks.find(t => t.id === activeId);
+        const overTask = project.tasks.find(t => t.id === overId);
+        const isOverColumn = COLUMNS.some(c => c.id === overId);
+
+        if (!activeTask || !originalState) return;
+
+        // Determine final target status
+        let targetStatus: Status | null = null;
+        if (isOverColumn) {
+            targetStatus = overId as Status;
+        } else if (overTask) {
+            targetStatus = overTask.status;
+        }
+
+        // If targetStatus is null, restore to original status
+        if (!targetStatus) {
+            if (activeTask.status !== originalState.originalStatus) {
+                updateTaskWithoutHistory(project.id, activeId, { status: originalState.originalStatus });
+            }
+            return;
+        }
+
+        // 判斷狀態是否真的改變（使用 originalState.originalStatus）
+        if (originalState.originalStatus !== targetStatus) {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const currentTime = now.toTimeString().slice(0, 5);
+
+            // 構建完整的 updates 對象
+            const updates: Partial<Omit<Task, 'id' | 'createdAt'>> = { status: targetStatus };
+
+            // 獲取原始任務數據（拖曳前的狀態）
+            // 注意：這裡的 activeTask 可能已經被 handleDragOver 更新了，但 startDate/dueDate 沒有被更新
+            const originalTask = activeTask;
+
+            // 判斷是否需要顯示日期確認 Modal
+            let needDateConfirm = false;
+            let confirmType: 'startDate' | 'dueDate' = 'startDate';
+            let oldDateValue = '';
+
+            // Standby: 開始日の設定機能を削除（何もしない）
+
+            // Todo に戻る場合：開始日をリセットするか確認（開始時間は変更しない）
+            if (targetStatus === 'todo') {
+                if (originalTask?.startDate) {
+                    // 開始日がある → リセットするか確認
+                    needDateConfirm = true;
+                    confirmType = 'resetStartDate';
+                    oldDateValue = originalTask.startDate;
+                }
+            }
+
+            // 處理 startDate（進入 in-progress）- 開始時間は変更しない
+            if (targetStatus === 'in-progress') {
+                // 開始日の処理
+                if (originalTask?.startDate === today) {
+                    // 開始日が今日 → 何もしない
+                } else if (!originalTask?.startDate) {
+                    // 開始日がない → 今日に設定
+                    updates.startDate = today;
+                } else {
+                    // 開始日があり今日ではない → 確認を求める
+                    needDateConfirm = true;
+                    confirmType = 'startDate';
+                    oldDateValue = originalTask.startDate;
+                }
+                // 開始時間は一切変更しない
+            }
+
+            // 處理 dueDate 和 dueTime（進入 done）
+            if (targetStatus === 'done') {
+                if (originalTask?.dueDate === today) {
+                    // 期限日が今日
+                    if (!originalTask?.dueTime) {
+                        // 期限時間がない → 確認なしで期限時間を設定
+                        updates.dueTime = currentTime;
+                    }
+                    // 期限時間がある場合は何もしない
+                } else if (!originalTask?.dueDate) {
+                    // 期限日がない → 期限日と期限時間を自動設定
+                    updates.dueDate = today;
+                    updates.dueTime = currentTime;
+                } else {
+                    // 期限日があり今日ではない → 確認を求める
+                    needDateConfirm = true;
+                    confirmType = 'dueDate';
+                    oldDateValue = originalTask.dueDate;
+                }
+            }
+
+            // 單次 updateTask 調用（產生一個歷史記錄）
+            updateTask(project.id, activeId, updates);
+
+            // 如果需要確認日期，顯示 Modal
+            if (needDateConfirm) {
+                setDateConfirmModal({
+                    taskId: activeId,
+                    type: confirmType,
+                    oldDate: oldDateValue,
+                    targetStatus: targetStatus,
+                });
+            }
+        }
+
+        // Reordering: only within the same column (when status doesn't change)
+        if (!isOverColumn && activeId !== overId && overTask
+            && originalState.originalStatus === overTask.status) {
             const oldIndex = project.tasks.findIndex(t => t.id === activeId);
             const newIndex = project.tasks.findIndex(t => t.id === overId);
 
@@ -890,19 +1209,35 @@ export const Board: React.FC = () => {
                 reorderTasks(project.id, newTasks);
             }
         }
+    };
 
-        // Deferred dueDate confirm after drag completes
-        if (pendingDueDateConfirm.current) {
-            const { taskId, oldDueDate } = pendingDueDateConfirm.current;
-            pendingDueDateConfirm.current = null;
-            const today = new Date().toISOString().split('T')[0];
-            // Use setTimeout to let the drag cleanup finish before showing confirm
-            setTimeout(() => {
-                if (confirm(`終了日を今日（${today}）に更新しますか？\n現在の終了日: ${oldDueDate}`)) {
-                    updateTask(project.id, taskId, { dueDate: today });
-                }
-            }, 0);
+    // Handle date confirmation modal response
+    const handleDateConfirm = (confirmed: boolean) => {
+        if (!dateConfirmModal) return;
+
+        if (confirmed) {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const currentTime = now.toTimeString().slice(0, 5);
+
+            const updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {};
+
+            if (dateConfirmModal.type === 'startDate') {
+                updates.startDate = today;
+                // 開始時間は一切変更しない
+            } else if (dateConfirmModal.type === 'dueDate') {
+                updates.dueDate = today;
+                updates.dueTime = currentTime;
+            } else if (dateConfirmModal.type === 'resetStartDate') {
+                // Reset start date when returning to todo（開始時間は変更しない）
+                updates.startDate = '';
+            }
+
+            // Use mergeHistory to avoid creating a new undo entry
+            updateTaskMergeHistory(project.id, dateConfirmModal.taskId, updates);
         }
+
+        setDateConfirmModal(null);
     };
 
     const activeTask = activeId ? project.tasks.find(t => t.id === activeId) : null;
@@ -961,6 +1296,49 @@ export const Board: React.FC = () => {
                     </div>
                 </header>
 
+                {/* Date Confirmation Modal (for drag-and-drop) */}
+                {dateConfirmModal && (
+                    <div className="modal-overlay" onClick={() => handleDateConfirm(false)}>
+                        <div
+                            className="card"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                padding: '1.5rem',
+                                maxWidth: '400px',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <h3 style={{ marginBottom: '1rem' }}>
+                                {dateConfirmModal.type === 'startDate' && '開始日を更新しますか？'}
+                                {dateConfirmModal.type === 'dueDate' && '終了日を更新しますか？'}
+                                {dateConfirmModal.type === 'resetStartDate' && '開始日をリセットしますか？'}
+                            </h3>
+                            <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-muted)' }}>
+                                {dateConfirmModal.type === 'resetStartDate'
+                                    ? `現在の開始日: ${dateConfirmModal.oldDate || '(時間のみ設定)'}`
+                                    : `現在の${dateConfirmModal.type === 'startDate' ? '開始日' : '終了日'}: ${dateConfirmModal.oldDate}`
+                                }
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                                <button
+                                    className="btn"
+                                    onClick={() => handleDateConfirm(false)}
+                                    style={{ minWidth: '100px' }}
+                                >
+                                    {dateConfirmModal.type === 'resetStartDate' ? '保持' : '保持原日期'}
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={() => handleDateConfirm(true)}
+                                    style={{ minWidth: '100px' }}
+                                >
+                                    {dateConfirmModal.type === 'resetStartDate' ? 'リセット' : '更新為今天'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Task Modal (shared for Edit and New) */}
                 {(editingTask || isAdding) && (
                     <div
@@ -968,7 +1346,7 @@ export const Board: React.FC = () => {
                         onMouseDown={() => { mouseDownInsideModal.current = false; }}
                         onMouseUp={() => {
                             if (!mouseDownInsideModal.current) {
-                                if (editingTask) closeTaskModalRef.current();
+                                if (editingTask) closeTaskModalWithConfirmRef.current();
                                 if (isAdding) setIsAdding(false);
                             }
                             mouseDownInsideModal.current = false;
@@ -1222,7 +1600,8 @@ export const Board: React.FC = () => {
                                                 marginBottom: '1rem',
                                             }}
                                             onClick={() => {
-                                                const today = new Date().toISOString().split('T')[0];
+                                                const now = new Date();
+                                                const today = now.toISOString().split('T')[0];
                                                 setEditStartDate(today);
                                                 saveModalState({ startDate: today });
                                             }}
@@ -1230,7 +1609,7 @@ export const Board: React.FC = () => {
                                             title="Set today as start date"
                                             tabIndex={0}
                                         >
-                                            Start
+                                            Today
                                         </button>
                                         <div className="form-group" style={{ flex: 1, minWidth: '120px' }}>
                                             <label className="form-label">Start Date</label>
@@ -1241,10 +1620,26 @@ export const Board: React.FC = () => {
                                                 value={editStartDate}
                                                 onChange={(e) => setEditStartDate(e.target.value)}
                                                 onKeyDown={handleStartDateKeyDown}
-                                                onFocus={() => { startDateSegmentRef.current = 0; }}
                                                 onClick={() => {
                                                     if (startDateRef.current) {
                                                         startDateSegmentRef.current = getDateSegmentFromSelection(startDateRef.current);
+                                                    }
+                                                }}
+                                                style={{ colorScheme: 'dark' }}
+                                            />
+                                        </div>
+                                        <div className="form-group" style={{ minWidth: '90px' }}>
+                                            <label className="form-label">Start Time</label>
+                                            <input
+                                                ref={startTimeRef}
+                                                type="time"
+                                                className="form-input"
+                                                value={editStartTime}
+                                                onChange={(e) => setEditStartTime(e.target.value)}
+                                                onKeyDown={handleStartTimeKeyDown}
+                                                onClick={() => {
+                                                    if (startTimeRef.current) {
+                                                        startTimeSegmentRef.current = getTimeSegmentFromSelection(startTimeRef.current);
                                                     }
                                                 }}
                                                 style={{ colorScheme: 'dark' }}
@@ -1259,10 +1654,26 @@ export const Board: React.FC = () => {
                                                 value={editDueDate}
                                                 onChange={(e) => setEditDueDate(e.target.value)}
                                                 onKeyDown={handleDueDateKeyDown}
-                                                onFocus={() => { dueDateSegmentRef.current = 0; }}
                                                 onClick={() => {
                                                     if (dueDateRef.current) {
                                                         dueDateSegmentRef.current = getDateSegmentFromSelection(dueDateRef.current);
+                                                    }
+                                                }}
+                                                style={{ colorScheme: 'dark' }}
+                                            />
+                                        </div>
+                                        <div className="form-group" style={{ minWidth: '90px' }}>
+                                            <label className="form-label">Due Time</label>
+                                            <input
+                                                ref={dueTimeRef}
+                                                type="time"
+                                                className="form-input"
+                                                value={editDueTime}
+                                                onChange={(e) => setEditDueTime(e.target.value)}
+                                                onKeyDown={handleDueTimeKeyDown}
+                                                onClick={() => {
+                                                    if (dueTimeRef.current) {
+                                                        dueTimeSegmentRef.current = getTimeSegmentFromSelection(dueTimeRef.current);
                                                     }
                                                 }}
                                                 style={{ colorScheme: 'dark' }}
@@ -1279,10 +1690,13 @@ export const Board: React.FC = () => {
                                                 borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 500,
                                                 marginBottom: '1rem',
                                             }}
-                                            onClick={() => {
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
                                                 setEditStartDate('');
+                                                setEditStartTime('');
                                                 setEditDueDate('');
-                                                saveModalState({ startDate: '', dueDate: '' });
+                                                setEditDueTime('');
+                                                saveModalState({ startDate: '', startTime: '', dueDate: '', dueTime: '' });
                                             }}
                                             onKeyDown={handleResetKeyDown}
                                             title="Clear dates"
@@ -1348,7 +1762,7 @@ export const Board: React.FC = () => {
                 )}
 
                 {viewMode === 'calendar' && (
-                    <div style={{ marginTop: '16px', height: 'calc(100vh - 140px)' }}>
+                    <div style={{ height: 'calc(100vh - 124px)' }}>
                         <CalendarView
                             tasks={project.tasks}
                             themeColor={project.theme}
@@ -1370,7 +1784,7 @@ export const Board: React.FC = () => {
 
 
                 {viewMode === 'timeline' && (
-                    <div style={{ marginTop: '16px', height: 'calc(100vh - 140px)' }}>
+                    <div style={{ height: 'calc(100vh - 124px)' }}>
                         <TimelineView
                             tasks={project.tasks}
                             onTaskClick={openTaskModal}
@@ -1424,7 +1838,20 @@ export const Board: React.FC = () => {
                                                 <SortableItem key={task.id} id={task.id}>
                                                     <div
                                                         className={`card task-card ${compactMode ? 'task-card-compact' : ''} ${!compactMode && !hasDetails ? 'task-card-title-only' : ''}`}
+                                                        data-task-id={task.id}
+                                                        data-column-id={col.id}
+                                                        data-task-index={idx}
                                                         onClick={() => openTaskModal(task)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                openTaskModal(task);
+                                                            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                                                                e.preventDefault();
+                                                                handleArrowKeyNavigation(e.key, col.id, idx);
+                                                            }
+                                                        }}
+                                                        tabIndex={0}
                                                         style={{ position: 'relative', overflow: 'hidden' }}
                                                     >
                                                         {/* Left priority bar */}
@@ -1434,6 +1861,7 @@ export const Board: React.FC = () => {
                                                                 <span className={`font-medium ${compactMode || !hasDetails ? 'task-title-compact' : ''}`}>{task.title}</span>
                                                                 <button
                                                                     className="star-toggle"
+                                                                    tabIndex={-1}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         updateTask(project.id, task.id, { starred: !task.starred });
@@ -1457,9 +1885,14 @@ export const Board: React.FC = () => {
                                                                     {col.id !== 'done' && (
                                                                         <>
                                                                             {col.id === 'in-progress' && (
-                                                                                <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
-                                                                                    Due: {task.dueDate || '未定'}
-                                                                                </div>
+                                                                                <>
+                                                                                    <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                        Start: {task.startDate || '未定'}
+                                                                                    </div>
+                                                                                    <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                        Due: {task.dueDate || '未定'}
+                                                                                    </div>
+                                                                                </>
                                                                             )}
                                                                             {col.id === 'standby' && (
                                                                                 <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>

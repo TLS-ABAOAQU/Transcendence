@@ -1,22 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
 
 interface HistoryState<T> {
-    past: T[];
+    past: T | null;      // Only one step back (simplified)
     present: T;
-    future: T[];
+    future: T | null;    // Only one step forward (simplified)
 }
-
-const MAX_HISTORY_SIZE = 50;
 
 export function useLocalStorageWithHistory<T>(key: string, initialValue: T) {
     const [history, setHistory] = useState<HistoryState<T>>(() => {
         try {
             const item = window.localStorage.getItem(key);
             const present = item ? JSON.parse(item) : initialValue;
-            return { past: [], present, future: [] };
+            return { past: null, present, future: null };
         } catch (error) {
             console.error(error);
-            return { past: [], present: initialValue, future: [] };
+            return { past: null, present: initialValue, future: null };
         }
     });
 
@@ -38,49 +36,71 @@ export function useLocalStorageWithHistory<T>(key: string, initialValue: T) {
                 return prev;
             }
 
-            const newPast = [...prev.past, prev.present].slice(-MAX_HISTORY_SIZE);
             return {
-                past: newPast,
+                past: prev.present,      // Only keep one step back
                 present: newPresent,
-                future: [], // Clear redo stack on new action
+                future: null,            // Clear redo on new action
             };
         });
     }, []);
 
     const undo = useCallback(() => {
         setHistory((prev) => {
-            if (prev.past.length === 0) return prev;
-
-            const newPast = prev.past.slice(0, -1);
-            const newPresent = prev.past[prev.past.length - 1];
-            const newFuture = [prev.present, ...prev.future].slice(0, MAX_HISTORY_SIZE);
+            if (prev.past === null) return prev;
 
             return {
-                past: newPast,
-                present: newPresent,
-                future: newFuture,
+                past: null,              // No more undo after this
+                present: prev.past,
+                future: prev.present,    // Current becomes redo target
             };
         });
     }, []);
 
     const redo = useCallback(() => {
         setHistory((prev) => {
-            if (prev.future.length === 0) return prev;
-
-            const newFuture = prev.future.slice(1);
-            const newPresent = prev.future[0];
-            const newPast = [...prev.past, prev.present].slice(-MAX_HISTORY_SIZE);
+            if (prev.future === null) return prev;
 
             return {
-                past: newPast,
-                present: newPresent,
-                future: newFuture,
+                past: prev.present,      // Current becomes undo target
+                present: prev.future,
+                future: null,            // No more redo after this
             };
         });
     }, []);
 
-    const canUndo = history.past.length > 0;
-    const canRedo = history.future.length > 0;
+    // Update value without creating history entry (for drag preview etc.)
+    const setValueWithoutHistory = useCallback((value: T | ((val: T) => T)) => {
+        setHistory((prev) => {
+            const newPresent = value instanceof Function ? value(prev.present) : value;
+            if (JSON.stringify(newPresent) === JSON.stringify(prev.present)) {
+                return prev;
+            }
+            return {
+                ...prev,
+                present: newPresent,
+                // Don't modify past or future
+            };
+        });
+    }, []);
 
-    return [history.present, setValue, { undo, redo, canUndo, canRedo }] as const;
+    // Update value and merge into the last history entry (for date confirmation after drag)
+    // This updates present but keeps past/future unchanged, effectively merging with the last action
+    const setValueMergeHistory = useCallback((value: T | ((val: T) => T)) => {
+        setHistory((prev) => {
+            const newPresent = value instanceof Function ? value(prev.present) : value;
+            if (JSON.stringify(newPresent) === JSON.stringify(prev.present)) {
+                return prev;
+            }
+            return {
+                past: prev.past,      // Keep past unchanged
+                present: newPresent,
+                future: prev.future,  // Keep future unchanged
+            };
+        });
+    }, []);
+
+    const canUndo = history.past !== null;
+    const canRedo = history.future !== null;
+
+    return [history.present, setValue, { undo, redo, canUndo, canRedo, setValueWithoutHistory, setValueMergeHistory }] as const;
 }

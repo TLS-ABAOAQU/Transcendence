@@ -184,7 +184,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
     }, [tasks, hideDone]);
 
     // Extended weeks array — fixed range (±12 months from today), independent of task data
-    const { allWeeks, todayWeekIndex } = useMemo(() => {
+    const allWeeks = useMemo(() => {
         const today = new Date();
         const rangeStart = startOfWeek(startOfMonth(subMonths(today, 12)));
         const rangeEnd = endOfWeek(endOfMonth(addMonths(today, 12)));
@@ -193,8 +193,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         for (let i = 0; i < days.length; i += 7) {
             weeks.push(days.slice(i, i + 7));
         }
-        const todayIdx = weeks.findIndex(w => w.some(d => isSameDay(d, today)));
-        return { allWeeks: weeks, todayWeekIndex: Math.max(todayIdx, 0) };
+        return weeks;
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -389,20 +388,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         });
     }, [allWeeks, updateHeaderLabel]);
 
-    // goToToday (scroll version)
-    const goToToday = useCallback(() => {
-        const container = scrollContainerRef.current;
-        if (!container) return;
-        const row = container.querySelector(`[data-week-index="${todayWeekIndex}"]`);
-        if (row) {
-            const el = row as HTMLElement;
-            container.scrollTo({
-                top: Math.max(0, el.offsetTop - container.clientHeight / 2 + el.offsetHeight / 2),
-                behavior: 'smooth',
-            });
-        }
-    }, [todayWeekIndex]);
-
     // Scroll to a specific month (find first week whose Thursday is in that month)
     const scrollToMonth = useCallback((year: number, month: number) => {
         const container = scrollContainerRef.current;
@@ -489,6 +474,61 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             }
         }
     }, [allWeeks, scrollToMonth]);
+
+    // Horizontal swipe (trackpad) to navigate months
+    const scrollToPrevMonthBoundaryRef = useRef(scrollToPrevMonthBoundary);
+    scrollToPrevMonthBoundaryRef.current = scrollToPrevMonthBoundary;
+    const scrollToNextMonthBoundaryRef = useRef(scrollToNextMonthBoundary);
+    scrollToNextMonthBoundaryRef.current = scrollToNextMonthBoundary;
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        let accumulatedDeltaX = 0;
+        const threshold = 1;
+        let hasNavigated = false;  // Has already navigated in this swipe session
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const resetSwipeSession = () => {
+            // Reset when swipe gesture ends
+            accumulatedDeltaX = 0;
+            hasNavigated = false;
+        };
+
+        const handleWheel = (e: WheelEvent) => {
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 5) {
+                e.preventDefault();
+
+                // Reset idle timer (swipe still ongoing)
+                if (idleTimer) clearTimeout(idleTimer);
+                idleTimer = setTimeout(resetSwipeSession, 150); // 150ms idle = swipe ended
+
+                // Ignore if already navigated in this swipe session
+                if (hasNavigated) return;
+
+                accumulatedDeltaX += e.deltaX;
+
+                if (accumulatedDeltaX > threshold) {
+                    hasNavigated = true;
+                    scrollToNextMonthBoundaryRef.current();
+                } else if (accumulatedDeltaX < -threshold) {
+                    hasNavigated = true;
+                    scrollToPrevMonthBoundaryRef.current();
+                }
+            } else {
+                // Reset on vertical scroll
+                if (idleTimer) clearTimeout(idleTimer);
+                resetSwipeSession();
+            }
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+            if (idleTimer) clearTimeout(idleTimer);
+        };
+    }, []);
 
     // Handle drag start for task bar
     const handleTaskBarDragStart = useCallback((e: React.DragEvent, task: TaskWithDates) => {
@@ -896,7 +936,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 <div
                     ref={scrollContainerRef}
                     className="calendar-scroll-hide"
-                    style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0, position: 'relative', scrollbarWidth: 'none' } as React.CSSProperties}
+                    style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        minHeight: 0,
+                        position: 'relative',
+                        scrollbarWidth: 'none',
+                        overscrollBehavior: 'contain',
+                    } as React.CSSProperties}
                     onDragOver={(e) => {
                         // Auto-scroll when dragging near top/bottom edges
                         if (draggingTask) {
@@ -1068,7 +1116,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                         const { name, indexInMonth, totalWeeks } = info;
                                         // Each row shows a clip of the full text, offset so it appears as one large text spanning all weeks
                                         const totalHeight = totalWeeks * rowHeight;
-                                        const fontSize = Math.min(totalHeight * 0.6, 300);
+                                        const fontSize = Math.min(totalHeight * 0.45, 220);
                                         const topOffset = -(indexInMonth * rowHeight) + (totalHeight - fontSize) / 2;
                                         return (
                                             <div style={{

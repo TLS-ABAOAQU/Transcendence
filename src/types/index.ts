@@ -17,7 +17,9 @@ export interface Task {
     url?: string;
     url2?: string;
     startDate?: string;
+    startTime?: string;
     dueDate?: string;
+    dueTime?: string;
     starred?: boolean;
     tags?: string[];
     checklist?: ChecklistItem[];

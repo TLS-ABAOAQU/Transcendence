@@ -28,6 +28,8 @@ interface TaskRowProps {
         border: string;
         primary: string;
         taskBg: string;
+        monthOdd: string;
+        monthEven: string;
     };
     dayWidth: number;
     days: Date[];
@@ -295,7 +297,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
     }, [days]);
 
     // Configuration
-    const dayWidth = viewRange === 'week' ? 170 : viewRange === 'month' ? 53 : 36;
+    const dayWidth = viewRange === 'week' ? 128 : viewRange === 'month' ? 64 : 31;
 
     // Resize/drag state
     const [resizing, setResizing] = useState<{
@@ -404,14 +406,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
     const updateHeaderLabel = useCallback(() => {
         const container = scrollContainerRef.current;
         if (!container || days.length === 0) return;
-        const scrollLeft = container.scrollLeft;
-        // Add offset to avoid showing previous month when scrolled to exact boundary
-        const offset = viewRange === 'week' ? 4.8 : viewRange === 'month' ? 15.7 : 22.7;
-        const dayIndex = Math.max(0, Math.min(Math.floor((scrollLeft + dayWidth * offset) / dayWidth), days.length - 1));
+        // Use center of visible area to determine month (same as CalendarView)
+        const centerX = container.scrollLeft + container.clientWidth / 2;
+        const dayIndex = Math.max(0, Math.min(Math.floor(centerX / dayWidth), days.length - 1));
         const visibleDate = days[dayIndex];
         setHeaderLabel(`${visibleDate.getFullYear()}年${visibleDate.getMonth() + 1}月`);
         setHeaderMonthEn(format(visibleDate, 'MMMM'));
-    }, [days, dayWidth, viewRange]);
+    }, [days, dayWidth]);
 
     // Scroll to today on initial load or when view changes
     useEffect(() => {
@@ -693,7 +694,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                     gap: '16px',
                     minHeight: '120px',
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Left section - flex: 1 */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <h2 style={{ margin: 0, fontSize: '42px', color: theme.text, flexShrink: 0, minWidth: '240px' }}>
                             {headerLabel}
                         </h2>
@@ -716,9 +718,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         </button>
                     </div>
 
-                    {/* Spacer */}
-                    <div style={{ flex: 1 }} />
-
                     {/* English month name - center */}
                     <span style={{
                         fontSize: '42px',
@@ -726,106 +725,107 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         color: theme.text,
                         letterSpacing: '0.05em',
                         opacity: 0.85,
+                        flexShrink: 0,
                     }}>
                         {headerMonthEn}
                     </span>
 
-                    {/* Spacer */}
-                    <div style={{ flex: 1 }} />
-
-                    {/* View Range Toggle */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        backgroundColor: theme.bg,
-                        borderRadius: '30px',
-                        padding: '5px',
-                        gap: '2px',
-                    }}>
-                        {([
-                            { range: 'week' as ViewRange, icon: (
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                    <line x1="8" y1="11" x2="14" y2="11" /><line x1="11" y1="8" x2="11" y2="14" />
-                                </svg>
-                            )},
-                            { range: 'month' as ViewRange, icon: (
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                    <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
-                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                </svg>
-                            )},
-                            { range: '3months' as ViewRange, icon: (
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                    <line x1="8" y1="11" x2="14" y2="11" />
-                                </svg>
-                            )},
-                        ]).map(({ range, icon }) => (
-                            <button
-                                key={range}
-                                onClick={() => { setViewRange(range); onViewRangeChange?.(range); }}
-                                style={{
-                                    padding: '10px 28px',
-                                    borderRadius: '30px',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: viewRange === range ? theme.primary : 'transparent',
-                                    color: viewRange === range ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
-                                    transition: 'all 0.2s ease',
-                                }}
-                            >
-                                {icon}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Navigation: ◀ Today ▶ */}
-                    <button
-                        type="button"
-                        onClick={() => scrollToPrevMonth()}
-                        style={{
-                            width: '44px', height: '44px', borderRadius: '50%', border: 'none',
-                            cursor: 'pointer', fontSize: '18px', lineHeight: 1,
-                            backgroundColor: theme.surface, color: theme.textMuted,
-                            flexShrink: 0,
-                        }}
-                    >
-                        ◀
-                    </button>
-                    <button
-                        type="button"
-                        onClick={goToToday}
-                        style={{
-                            padding: '10px 26px',
+                    {/* Right section - flex: 1 */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px' }}>
+                        {/* View Range Toggle */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            backgroundColor: theme.bg,
                             borderRadius: '30px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '20px',
-                            fontWeight: 700,
-                            backgroundColor: theme.primary,
-                            color: 'rgba(255, 255, 255, 0.85)',
-                            flexShrink: 0,
-                        }}
-                    >
-                        Today
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => scrollToNextMonth()}
-                        style={{
-                            width: '44px', height: '44px', borderRadius: '50%', border: 'none',
-                            cursor: 'pointer', fontSize: '18px', lineHeight: 1,
-                            backgroundColor: theme.surface, color: theme.textMuted,
-                            flexShrink: 0,
-                        }}
-                    >
-                        ▶
-                    </button>
+                            padding: '5px',
+                            gap: '2px',
+                        }}>
+                            {([
+                                { range: 'week' as ViewRange, icon: (
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                        <line x1="8" y1="11" x2="14" y2="11" /><line x1="11" y1="8" x2="11" y2="14" />
+                                    </svg>
+                                )},
+                                { range: 'month' as ViewRange, icon: (
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg>
+                                )},
+                                { range: '3months' as ViewRange, icon: (
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                        <line x1="8" y1="11" x2="14" y2="11" />
+                                    </svg>
+                                )},
+                            ]).map(({ range, icon }) => (
+                                <button
+                                    key={range}
+                                    onClick={() => { setViewRange(range); onViewRangeChange?.(range); }}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: '30px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: viewRange === range ? theme.primary : 'transparent',
+                                        color: viewRange === range ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                >
+                                    {icon}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Navigation: ◀ Today ▶ */}
+                        <button
+                            type="button"
+                            onClick={() => scrollToPrevMonth()}
+                            style={{
+                                width: '44px', height: '44px', borderRadius: '50%', border: 'none',
+                                cursor: 'pointer', fontSize: '18px', lineHeight: 1,
+                                backgroundColor: theme.surface, color: theme.textMuted,
+                                flexShrink: 0,
+                            }}
+                        >
+                            ◀
+                        </button>
+                        <button
+                            type="button"
+                            onClick={goToToday}
+                            style={{
+                                padding: '10px 26px',
+                                borderRadius: '30px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                fontWeight: 700,
+                                backgroundColor: theme.primary,
+                                color: 'rgba(255, 255, 255, 0.85)',
+                                flexShrink: 0,
+                            }}
+                        >
+                            Today
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => scrollToNextMonth()}
+                            style={{
+                                width: '44px', height: '44px', borderRadius: '50%', border: 'none',
+                                cursor: 'pointer', fontSize: '18px', lineHeight: 1,
+                                backgroundColor: theme.surface, color: theme.textMuted,
+                                flexShrink: 0,
+                            }}
+                        >
+                            ▶
+                        </button>
+                    </div>
                 </div>
 
                 {/* Timeline Grid */}
@@ -837,6 +837,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         overflow: 'auto',
                         scrollbarWidth: 'none',
                         cursor: resizing ? 'ew-resize' : 'default',
+                        overscrollBehavior: 'contain',
                     } as React.CSSProperties}
                 >
                 <div style={{ minWidth: `${totalDays * dayWidth + 200}px` }}>
@@ -870,10 +871,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                             {days.map((day, index) => {
                                 const isToday = isSameDay(day, new Date());
                                 const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-                                const isFirstOfMonth = day.getDate() === 1;
-                                const prevDay = index > 0 ? days[index - 1] : null;
-                                const isNewMonth = prevDay && day.getMonth() !== prevDay.getMonth();
-                                const showMonthYear = index === 0 || isFirstOfMonth || isNewMonth;
 
                                 // Day of week abbreviations in Japanese
                                 const dayOfWeekJP = ['日', '月', '火', '水', '木', '金', '土'][day.getDay()];
