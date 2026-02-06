@@ -43,12 +43,13 @@
     gap: 1rem;
     overflow-x: hidden;
     padding-bottom: 1rem;
-    height: 100%;
+    height: calc(100vh - 124px); /* タイムライン・カレンダーと同じ高さ */
 }
 
 .board-column {
     flex: 1;
     min-width: 0;
+    height: calc(100vh - 124px - 1rem); /* ビューポート基準で直接指定 */
     background-color: rgba(30, 41, 59, 0.5);
     /* Slate 800 / 0.5 */
     border-radius: var(--radius-md);
@@ -119,6 +120,12 @@
 
 .task-card:active {
     cursor: grabbing;
+}
+
+/* Yellow border for the last modified task */
+.task-card-last-modified {
+    border: 2px solid #fbbf24 !important;
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
 }
 
 .task-header {

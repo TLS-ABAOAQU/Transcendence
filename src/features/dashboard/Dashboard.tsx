@@ -19,6 +19,7 @@ import {
     rectSortingStrategy
 } from '@dnd-kit/sortable';
 import { SortableItem } from '../../components/SortableItem';
+import { HistoryTimeline } from '../history/HistoryTimeline';
 import './Dashboard.css';
 
 // Marquee component for long project names
@@ -510,6 +511,7 @@ export const Dashboard: React.FC = () => {
                     })() : null}
                 </DragOverlay>
             </div>
+            <HistoryTimeline />
         </DndContext>
     );
 };

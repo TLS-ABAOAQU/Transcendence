@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, type ReactNode } from 'react';
 import type { Project, Task, Status, ViewSettings } from '../types';
-import { useLocalStorageWithHistory } from '../hooks/useLocalStorageWithHistory';
+import { useProjectStore, useTemporalStore } from '../store/projectStore';
 
 interface ProjectContextType {
     projects: Project[];
@@ -10,8 +10,6 @@ interface ProjectContextType {
     updateTaskStatus: (projectId: string, taskId: string, newStatus: Status) => void;
     updateProject: (id: string, updates: { name: string; theme: string; startDate?: string; deadline?: string }) => void;
     updateTask: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
-    updateTaskWithoutHistory: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
-    updateTaskMergeHistory: (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
     deleteProject: (id: string) => void;
     deleteTask: (projectId: string, taskId: string) => void;
     reorderProjects: (newOrder: Project[]) => void;
@@ -27,24 +25,38 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [projects, setProjects, { undo, redo, canUndo, canRedo, setValueWithoutHistory, setValueMergeHistory }] = useLocalStorageWithHistory<Project[]>('ppm-projects', []);
-    const [activeProjectId, setActiveProjectId] = React.useState<string | null>(() => {
-        try {
-            const item = window.localStorage.getItem('ppm-active-project');
-            return item ? JSON.parse(item) : null;
-        } catch {
-            return null;
-        }
-    });
+    // Get state and actions from Zustand store
+    const {
+        projects,
+        activeProjectId,
+        addProject,
+        updateProject,
+        addTask,
+        updateTaskStatus,
+        updateTask,
+        deleteProject,
+        deleteTask,
+        reorderProjects,
+        reorderTasks,
+        updateViewSettings,
+        setActiveProject,
+    } = useProjectStore();
 
-    // Save activeProjectId to localStorage
+    // Get temporal (undo/redo) functionality
+    const temporalStore = useTemporalStore();
+    const { undo, redo, pastStates, futureStates } = temporalStore.getState();
+
+    // Subscribe to temporal store changes for canUndo/canRedo
+    const [canUndo, setCanUndo] = React.useState(pastStates.length > 0);
+    const [canRedo, setCanRedo] = React.useState(futureStates.length > 0);
+
     useEffect(() => {
-        try {
-            window.localStorage.setItem('ppm-active-project', JSON.stringify(activeProjectId));
-        } catch (error) {
-            console.error(error);
-        }
-    }, [activeProjectId]);
+        const unsubscribe = temporalStore.subscribe((state) => {
+            setCanUndo(state.pastStates.length > 0);
+            setCanRedo(state.futureStates.length > 0);
+        });
+        return unsubscribe;
+    }, [temporalStore]);
 
     // Keyboard shortcuts for undo/redo
     useEffect(() => {
@@ -68,129 +80,6 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
 
-    const addProject = (name: string, theme: string, startDate?: string, deadline?: string) => {
-        const today = new Date().toISOString().split('T')[0];
-        const newProject: Project = {
-            id: crypto.randomUUID(),
-            name,
-            theme,
-            startDate: startDate || today,
-            deadline,
-            tasks: [],
-            createdAt: Date.now(),
-        };
-        setProjects((prev) => [...prev, newProject]);
-    };
-
-    const updateProject = (id: string, updates: { name: string; theme: string; startDate?: string; deadline?: string }) => {
-        setProjects((prev) =>
-            prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-        );
-    };
-
-    const addTask = (projectId: string, taskData: Omit<Task, 'id' | 'createdAt'>) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                const newTask: Task = {
-                    ...taskData,
-                    id: crypto.randomUUID(),
-                    createdAt: Date.now(),
-                };
-                return { ...p, tasks: [...p.tasks, newTask] };
-            })
-        );
-    };
-
-    const updateTaskStatus = (projectId: string, taskId: string, newStatus: Status) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return {
-                    ...p,
-                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
-                };
-            })
-        );
-    };
-
-    const updateTask = (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return {
-                    ...p,
-                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
-                };
-            })
-        );
-    };
-
-    // Update task without creating history entry (for drag preview)
-    const updateTaskWithoutHistory = (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
-        setValueWithoutHistory((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return {
-                    ...p,
-                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
-                };
-            })
-        );
-    };
-
-    // Update task and merge into the last history entry (for date confirmation after drag)
-    const updateTaskMergeHistory = (projectId: string, taskId: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
-        setValueMergeHistory((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return {
-                    ...p,
-                    tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
-                };
-            })
-        );
-    };
-
-    const deleteProject = (id: string) => {
-        setProjects((prev) => prev.filter((p) => p.id !== id));
-        if (activeProjectId === id) setActiveProjectId(null);
-    };
-
-    const deleteTask = (projectId: string, taskId: string) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return {
-                    ...p,
-                    tasks: p.tasks.filter((t) => t.id !== taskId),
-                };
-            })
-        );
-    };
-
-    const reorderProjects = (newOrder: Project[]) => {
-        setProjects(newOrder);
-    };
-
-    const reorderTasks = (projectId: string, newTasks: Task[]) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return { ...p, tasks: newTasks };
-            })
-        );
-    };
-
-    const updateViewSettings = (projectId: string, settings: Partial<ViewSettings>) => {
-        setProjects((prev) =>
-            prev.map((p) => {
-                if (p.id !== projectId) return p;
-                return { ...p, viewSettings: { ...p.viewSettings, ...settings } };
-            })
-        );
-    };
-
     return (
         <ProjectContext.Provider
             value={{
@@ -201,14 +90,12 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
                 addTask,
                 updateTaskStatus,
                 updateTask,
-                updateTaskWithoutHistory,
-                updateTaskMergeHistory,
                 deleteProject,
                 deleteTask,
                 reorderProjects,
                 reorderTasks,
                 updateViewSettings,
-                setActiveProject: setActiveProjectId,
+                setActiveProject,
                 undo,
                 redo,
                 canUndo,

@@ -20,6 +20,7 @@ import { SortableItem } from '../../components/SortableItem';
 import { Droppable } from '../../components/Droppable';
 import { CalendarView } from './CalendarView';
 import { TimelineView } from './TimelineView';
+import { HistoryTimeline } from '../history/HistoryTimeline';
 import type { Status, Priority, Task, ChecklistItem } from '../../types';
 import './Board.css';
 
@@ -31,7 +32,7 @@ const COLUMNS: { id: Status; title: string }[] = [
 ];
 
 export const Board: React.FC = () => {
-    const { projects, activeProjectId, setActiveProject, addTask, updateTask, updateTaskWithoutHistory, updateTaskMergeHistory, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
+    const { projects, activeProjectId, setActiveProject, addTask, updateTask, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
     const project = projects.find((p) => p.id === activeProjectId);
     const [isAdding, setIsAdding] = useState(false);
 
@@ -61,6 +62,10 @@ export const Board: React.FC = () => {
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         toastTimerRef.current = setTimeout(() => setToastMessage(''), 1500);
     }, []);
+
+    // Track the last modified task ID (for yellow border highlight)
+    // This is NOT stored in Zustand to avoid creating history entries
+    const [lastModifiedTaskId, setLastModifiedTaskId] = useState<string | null>(null);
 
     // Modal-specific undo/redo history
     interface ModalState {
@@ -220,11 +225,7 @@ export const Board: React.FC = () => {
             // Skip if modifier keys are held
             if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                setActiveProject(null);
-                return;
-            }
+            // ESC key no longer triggers back navigation (removed per user request)
 
             if (e.key === 'Backspace') {
                 // Only trigger if no input/textarea is focused
@@ -493,6 +494,8 @@ export const Board: React.FC = () => {
             tags: editTags,
             checklist: editChecklist,
         });
+        // Mark this task as the last modified (for yellow border)
+        setLastModifiedTaskId(editingTask.id);
         setEditingTask(null);
         restoreFocusToTaskCard();
     };
@@ -1073,7 +1076,7 @@ export const Board: React.FC = () => {
 
         // Update status without history for visual preview
         if (targetStatus && activeTask.status !== targetStatus) {
-            updateTaskWithoutHistory(project.id, activeId, { status: targetStatus });
+            updateTask(project.id, activeId, { status: targetStatus });
         }
     };
 
@@ -1086,7 +1089,7 @@ export const Board: React.FC = () => {
         if (!over) {
             // Cancelled - restore original status
             if (originalState) {
-                updateTaskWithoutHistory(project.id, originalState.taskId, { status: originalState.originalStatus });
+                updateTask(project.id, originalState.taskId, { status: originalState.originalStatus });
             }
             return;
         }
@@ -1111,7 +1114,7 @@ export const Board: React.FC = () => {
         // If targetStatus is null, restore to original status
         if (!targetStatus) {
             if (activeTask.status !== originalState.originalStatus) {
-                updateTaskWithoutHistory(project.id, activeId, { status: originalState.originalStatus });
+                updateTask(project.id, activeId, { status: originalState.originalStatus });
             }
             return;
         }
@@ -1131,7 +1134,7 @@ export const Board: React.FC = () => {
 
             // 判斷是否需要顯示日期確認 Modal
             let needDateConfirm = false;
-            let confirmType: 'startDate' | 'dueDate' = 'startDate';
+            let confirmType: 'startDate' | 'dueDate' | 'resetStartDate' = 'startDate';
             let oldDateValue = '';
 
             // Standby: 開始日の設定機能を削除（何もしない）
@@ -1184,8 +1187,11 @@ export const Board: React.FC = () => {
                 }
             }
 
-            // 單次 updateTask 調用（產生一個歷史記錄）
+            // 拖曳狀態變更不產生履歷
             updateTask(project.id, activeId, updates);
+
+            // Mark this task as the last modified (for yellow border)
+            setLastModifiedTaskId(activeId);
 
             // 如果需要確認日期，顯示 Modal
             if (needDateConfirm) {
@@ -1199,6 +1205,7 @@ export const Board: React.FC = () => {
         }
 
         // Reordering: only within the same column (when status doesn't change)
+        // 重排任務不產生履歷
         if (!isOverColumn && activeId !== overId && overTask
             && originalState.originalStatus === overTask.status) {
             const oldIndex = project.tasks.findIndex(t => t.id === activeId);
@@ -1234,7 +1241,7 @@ export const Board: React.FC = () => {
             }
 
             // Use mergeHistory to avoid creating a new undo entry
-            updateTaskMergeHistory(project.id, dateConfirmModal.taskId, updates);
+            updateTask(project.id, dateConfirmModal.taskId, updates);
         }
 
         setDateConfirmModal(null);
@@ -1768,9 +1775,11 @@ export const Board: React.FC = () => {
                             themeColor={project.theme}
                             onTaskClick={openTaskModal}
                             onTaskUpdate={(taskId, updates) => {
+                                // Calendar 拖曳不產生履歷
                                 updateTask(project.id, taskId, updates);
                             }}
                             onTasksReorder={(newTasks) => {
+                                // Calendar 重排不產生履歷
                                 reorderTasks(project.id, newTasks);
                             }}
                             taskColorMap={taskColorMap}
@@ -1789,6 +1798,7 @@ export const Board: React.FC = () => {
                             tasks={project.tasks}
                             onTaskClick={openTaskModal}
                             onTaskUpdate={(taskId, updates) => {
+                                // Timeline 拖曳不產生履歷
                                 updateTask(project.id, taskId, updates);
                             }}
                             taskColorMap={taskColorMap}
@@ -1806,7 +1816,7 @@ export const Board: React.FC = () => {
                 )}
 
                 {viewMode === 'board' && (
-                    <div className="board-columns">
+                    <div className="board-columns" style={{ height: 'calc(100vh - 124px)' }}>
                         {COLUMNS.map((col) => {
                             const colTasks = project.tasks.filter((t) => t.status === col.id);
                             // Sort: starred tasks pinned to top, rest keep drag order
@@ -1814,7 +1824,7 @@ export const Board: React.FC = () => {
                             const unstarredTasks = colTasks.filter(t => !t.starred);
                             const sortedTasks = [...starredTasks, ...unstarredTasks];
                             return (
-                                <Droppable key={col.id} id={col.id} className="board-column">
+                                <Droppable key={col.id} id={col.id} className="board-column" style={{ height: 'calc(100vh - 124px - 1rem)' }}>
                                     <SortableContext
                                         id={col.id}
                                         items={sortedTasks.map(t => t.id)}
@@ -1834,10 +1844,11 @@ export const Board: React.FC = () => {
                                                     (task.startDate || task.url || task.url2 || task.description ||
                                                     (task.tags && task.tags.length > 0) || (task.checklist && task.checklist.length > 0)))
                                                 );
+                                                const isLastModified = task.id === lastModifiedTaskId;
                                                 return (
                                                 <SortableItem key={task.id} id={task.id}>
                                                     <div
-                                                        className={`card task-card ${compactMode ? 'task-card-compact' : ''} ${!compactMode && !hasDetails ? 'task-card-title-only' : ''}`}
+                                                        className={`card task-card ${compactMode ? 'task-card-compact' : ''} ${!compactMode && !hasDetails ? 'task-card-title-only' : ''} ${isLastModified ? 'task-card-last-modified' : ''}`}
                                                         data-task-id={task.id}
                                                         data-column-id={col.id}
                                                         data-task-index={idx}
@@ -1864,6 +1875,7 @@ export const Board: React.FC = () => {
                                                                     tabIndex={-1}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
+                                                                        // 切換星標不產生履歷
                                                                         updateTask(project.id, task.id, { starred: !task.starred });
                                                                     }}
                                                                     title={task.starred ? 'Unstar' : 'Star'}
@@ -2038,6 +2050,7 @@ export const Board: React.FC = () => {
                     {toastMessage}
                 </div>
             )}
+            <HistoryTimeline />
         </DndContext>
     );
 };

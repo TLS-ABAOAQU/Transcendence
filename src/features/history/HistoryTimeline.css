@@ -1,0 +1,445 @@
+/* History Timeline Styles */
+
+/* Overlay to capture outside clicks when expanded */
+.history-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: transparent;
+}
+
+.history-timeline {
+    position: fixed;
+    bottom: 1rem;
+    z-index: 100;
+    transition: left 0.3s ease, right 0.3s ease, opacity 0.2s ease;
+}
+
+/* Position variants */
+.history-timeline.left {
+    left: 1rem;
+    right: auto;
+}
+
+.history-timeline.right {
+    right: 1rem;
+    left: auto;
+}
+
+/* Dragging state */
+.history-timeline.dragging {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Prevent text selection during drag */
+body.history-dragging {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing !important;
+}
+
+body.history-dragging * {
+    cursor: grabbing !important;
+}
+
+/* Drag ghost - follows cursor */
+.history-drag-ghost {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.6);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.9;
+}
+
+/* Collapsed state */
+.history-timeline.collapsed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: grab;
+}
+
+.history-timeline.collapsed:active {
+    cursor: grabbing;
+}
+
+.history-toggle-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+    transition: all 0.2s ease;
+}
+
+.history-toggle-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 30px rgba(139, 92, 246, 0.6);
+}
+
+.history-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    background: rgba(30, 41, 59, 0.95);
+    border-radius: var(--radius-md);
+    padding: 0.5rem;
+    border: 1px solid var(--color-border);
+    backdrop-filter: blur(10px);
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.stat-number {
+    font-weight: 700;
+    color: var(--color-primary);
+    min-width: 1.25rem;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+}
+
+/* Expanded state */
+.history-timeline.expanded {
+    width: 420px;
+    max-height: 70vh;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    overflow: clip; /* hidden → clip: 角丸を維持しつつ、子要素のスクロールを許可 */
+}
+
+/* Header */
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: grab;
+}
+
+.history-header:active {
+    cursor: grabbing;
+}
+
+.history-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0;
+    user-select: none;
+}
+
+.history-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    transition: all 0.2s ease;
+}
+
+.history-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* Action buttons */
+.history-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.history-action-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.history-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.history-action-btn.clear {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgba(239, 68, 68, 0.8);
+}
+
+.history-action-btn.clear:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: rgba(239, 68, 68, 1);
+}
+
+/* ===== iOS Picker Section (Redesigned) ===== */
+
+/* ピッカーコンテナ - 固定高さ、シンプルな構造 */
+.timeline-picker {
+    position: relative;
+    height: 396px; /* 44px × 9行 */
+    flex-shrink: 0;
+}
+
+/* フェード効果（上） - 背景色からのグラデーション */
+.picker-fade-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 88px; /* 2行分 */
+    background: linear-gradient(to bottom,
+        rgba(26, 35, 50, 1) 0%,
+        rgba(26, 35, 50, 0) 100%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* フェード効果（下） */
+.picker-fade-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 88px; /* 2行分 */
+    background: linear-gradient(to top,
+        rgba(26, 35, 50, 1) 0%,
+        rgba(26, 35, 50, 0) 100%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* 中央ハイライト - 選択領域を示す（横幅1.2倍） */
+.picker-highlight {
+    position: absolute;
+    top: 50%;
+    left: -10%;
+    right: -10%;
+    height: 44px;
+    transform: translateY(-50%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(139, 92, 246, 0.08);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* スクロール領域 - これが実際にスクロールする */
+.picker-scroll {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: y mandatory; /* スナップを強制 */
+}
+
+.picker-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* スペーサー - 最初/最後のアイテムを中央に配置可能にする */
+/* 上下のスペーサーは別々に設定（scroll-snap用に微調整） */
+.picker-spacer {
+    flex-shrink: 0;
+}
+
+.picker-spacer-top {
+    height: 176px; /* 4行分 */
+}
+
+.picker-spacer-bottom {
+    height: 176px; /* 4行分 */
+}
+
+/* アイテム共通スタイル */
+.picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* 横方向も中央揃え */
+    gap: 0.5rem;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 1rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: center; /* テキストも中央揃え */
+    /* デフォルト：遠いアイテムのスタイル（JSでオーバーライド） */
+    transform: scale(0.85);
+    opacity: 0.3;
+    color: #707070;
+    font-weight: 400;
+    transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+    scroll-snap-align: center; /* スナップ位置 */
+}
+
+.picker-item:hover {
+    opacity: 0.5;
+}
+
+/* アイテムのインデックス部分 */
+.picker-item-index {
+    font-size: 0.75rem;
+    min-width: 2rem;
+    text-align: right;
+    color: inherit;
+}
+
+/* アイテムの説明部分 */
+.picker-item-desc {
+    flex: 1;
+    font-size: 0.875rem;
+    text-align: center;
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* === 色の区別：未来/現在/過去 === */
+/* 背景色を横に2倍に広げる（疑似要素を使用） */
+
+/* 未来：オレンジ系 */
+.picker-item.future {
+    position: relative;
+}
+.picker-item.future::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100%;
+    right: -100%;
+    background: rgba(251, 146, 60, 0.08);
+    z-index: -1;
+}
+.picker-item.future .picker-item-index {
+    color: #FB923C;
+}
+.picker-item.future .picker-item-desc {
+    color: #FDBA74;
+}
+
+/* 現在：紫系 */
+.picker-item.current {
+    position: relative;
+}
+.picker-item.current::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100%;
+    right: -100%;
+    background: rgba(167, 139, 250, 0.12);
+    z-index: -1;
+}
+.picker-item.current .picker-item-index {
+    color: #A78BFA;
+}
+.picker-item.current .picker-item-desc {
+    color: #C4B5FD;
+}
+
+/* 過去：緑系 */
+.picker-item.past {
+    position: relative;
+}
+.picker-item.past::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -100%;
+    right: -100%;
+    background: rgba(74, 222, 128, 0.08);
+    z-index: -1;
+}
+.picker-item.past .picker-item-index {
+    color: #4ADE80;
+}
+.picker-item.past .picker-item-desc {
+    color: #86EFAC;
+}
+
+/* 空の状態 */
+.picker-empty {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.picker-empty p {
+    margin: 0;
+}
+
+.picker-empty .text-muted {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    opacity: 0.6;
+}
+

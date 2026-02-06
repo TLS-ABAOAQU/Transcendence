@@ -299,7 +299,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
     // Configuration
     const dayWidth = viewRange === 'week' ? 128 : viewRange === 'month' ? 64 : 31;
 
-    // Resize/drag state
+    // Resize/drag state - currentStart/currentEnd track visual position during drag
     const [resizing, setResizing] = useState<{
         taskId: string;
         edge: 'left' | 'right' | 'move';
@@ -307,6 +307,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
         initialScrollLeft: number;
         initialStart: Date;
         initialEnd: Date;
+        currentStart: Date;
+        currentEnd: Date;
     } | null>(null);
 
     // Track if we just finished resizing/dragging (to prevent click from opening modal)
@@ -590,10 +592,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
             initialScrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
             initialStart: task.taskStart,
             initialEnd: task.taskEnd,
+            currentStart: task.taskStart,
+            currentEnd: task.taskEnd,
         });
     }, []);
 
     // Handle mouse move for resizing/dragging
+    // Only updates local state (currentStart/currentEnd) during drag
+    // Store is updated only on mouse up (like CalendarView)
     useEffect(() => {
         if (!resizing) return;
 
@@ -622,7 +628,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                 newEnd = addDays(resizing.initialEnd, daysDiff);
             } else {
                 // Use initial dates from resizing state (captured at drag start)
-                // instead of stale timelineTasks data which may not reflect intermediate updates
                 newStart = resizing.initialStart;
                 newEnd = resizing.initialEnd;
 
@@ -639,11 +644,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                 }
             }
 
-            // Update task via stableTaskUpdate to preserve scroll position
-            stableTaskUpdate(resizing.taskId, {
-                startDate: format(newStart, 'yyyy-MM-dd'),
-                dueDate: format(newEnd, 'yyyy-MM-dd'),
-            });
+            // Only update local state during drag (don't touch store yet)
+            // This prevents multiple history entries during a single drag
+            setResizing(prev => prev ? {
+                ...prev,
+                currentStart: newStart,
+                currentEnd: newEnd,
+            } : null);
         };
 
         const handleMouseUp = () => {
@@ -654,6 +661,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                 setTimeout(() => {
                     justFinishedResizing.current = false;
                 }, 100);
+
+                // Update store ONLY on mouse up (single history entry)
+                if (resizing.currentStart && resizing.currentEnd) {
+                    stableTaskUpdate(resizing.taskId, {
+                        startDate: format(resizing.currentStart, 'yyyy-MM-dd'),
+                        dueDate: format(resizing.currentEnd, 'yyyy-MM-dd'),
+                    });
+                }
             }
             if (scrollContainerRef.current) {
                 savedScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
@@ -922,11 +937,17 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         ) : (
                             <div>
                             {timelineTasks.map((task) => {
-                                const position = getTaskPosition(task);
+                                // During drag, use local state (currentStart/currentEnd) for the dragged task
+                                // This shows visual feedback without updating the store
+                                const isBeingDragged = resizing?.taskId === task.id;
+                                const effectiveTask = isBeingDragged && resizing
+                                    ? { ...task, taskStart: resizing.currentStart, taskEnd: resizing.currentEnd }
+                                    : task;
+                                const position = getTaskPosition(effectiveTask);
                                 return (
                                     <TaskRow
                                         key={task.id}
-                                        task={task}
+                                        task={effectiveTask}
                                         position={position}
                                         theme={theme}
                                         dayWidth={dayWidth}

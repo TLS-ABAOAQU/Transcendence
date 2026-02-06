@@ -5,15 +5,16 @@ interface Props {
     id: string;
     children: React.ReactNode;
     className?: string;
+    style?: React.CSSProperties;
 }
 
-export const Droppable: React.FC<Props> = ({ id, children, className }) => {
+export const Droppable: React.FC<Props> = ({ id, children, className, style }) => {
     const { setNodeRef } = useDroppable({
         id,
     });
 
     return (
-        <div ref={setNodeRef} className={className}>
+        <div ref={setNodeRef} className={className} style={style}>
             {children}
         </div>
     );
