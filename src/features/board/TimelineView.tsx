@@ -703,25 +703,25 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    padding: '24px 32px',
+                    padding: '12px 32px',
                     backgroundColor: theme.headerBg,
                     flexShrink: 0,
                     gap: '16px',
-                    minHeight: '120px',
+                    minHeight: '80px',
                 }}>
                     {/* Left section - flex: 1 */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <h2 style={{ margin: 0, fontSize: '42px', color: theme.text, flexShrink: 0, minWidth: '240px' }}>
+                        <h2 style={{ margin: 0, fontSize: '32px', color: theme.text, flexShrink: 0, minWidth: '200px' }}>
                             {headerLabel}
                         </h2>
                         <button
                             onClick={() => { const newVal = !hideDone; setHideDone(newVal); onHideDoneChange?.(newVal); }}
                             style={{
-                                padding: '10px 26px',
+                                padding: '8px 20px',
                                 borderRadius: '30px',
                                 border: hideDone ? '1.5px solid transparent' : '1.5px solid rgba(255, 255, 255, 0.40)',
                                 cursor: 'pointer',
-                                fontSize: '20px',
+                                fontSize: '16px',
                                 fontWeight: 700,
                                 backgroundColor: hideDone ? theme.primary : theme.surface,
                                 color: hideDone ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
@@ -735,7 +735,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
 
                     {/* English month name - center */}
                     <span style={{
-                        fontSize: '42px',
+                        fontSize: '32px',
                         fontWeight: 700,
                         color: theme.text,
                         letterSpacing: '0.05em',

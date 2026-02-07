@@ -21,6 +21,7 @@ import { Droppable } from '../../components/Droppable';
 import { CalendarView } from './CalendarView';
 import { TimelineView } from './TimelineView';
 import { HistoryTimeline } from '../history/HistoryTimeline';
+import { DateWheelPicker, TimeWheelPicker } from '../../components/WheelPicker';
 import type { Status, Priority, Task, ChecklistItem } from '../../types';
 import './Board.css';
 
@@ -53,6 +54,12 @@ export const Board: React.FC = () => {
     const [showTagSuggestions, setShowTagSuggestions] = useState(false);
     const [editChecklist, setEditChecklist] = useState<ChecklistItem[]>([]);
     const [checklistInput, setChecklistInput] = useState('');
+
+    // Wheel Picker visibility states
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+    const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+    const [showDueTimePicker, setShowDueTimePicker] = useState(false);
 
     // Toast notification state
     const [toastMessage, setToastMessage] = useState('');
@@ -218,6 +225,7 @@ export const Board: React.FC = () => {
     }, [showToast]);
 
     // ESC / Backspace → navigate back to dashboard (when no modal is open)
+    // Enter → open new task modal (when no modal is open)
     useEffect(() => {
         const handleBackNavigation = (e: KeyboardEvent) => {
             // Skip if any modal is open
@@ -236,6 +244,18 @@ export const Board: React.FC = () => {
                 if (isEditable) return;
                 e.preventDefault();
                 setActiveProject(null);
+            }
+
+            // Enter key → open new task modal
+            if (e.key === 'Enter') {
+                // Only trigger if no input/textarea is focused
+                const active = document.activeElement;
+                const isEditable = active instanceof HTMLInputElement ||
+                    active instanceof HTMLTextAreaElement ||
+                    (active instanceof HTMLElement && active.isContentEditable);
+                if (isEditable) return;
+                e.preventDefault();
+                openNewTaskModalRef.current();
             }
         };
         window.addEventListener('keydown', handleBackNavigation);
@@ -645,14 +665,18 @@ export const Board: React.FC = () => {
     closeTaskModalRef.current = closeTaskModal;
     const closeTaskModalWithConfirmRef = useRef(closeTaskModalWithConfirm);
     closeTaskModalWithConfirmRef.current = closeTaskModalWithConfirm;
+    const openNewTaskModalRef = useRef(openNewTaskModal);
+    openNewTaskModalRef.current = openNewTaskModal;
+    const handleDeleteTaskRef = useRef(handleDeleteTask);
+    handleDeleteTaskRef.current = handleDeleteTask;
 
-    // Global modal keyboard handler: Cmd+Enter to save, Escape to close
+    // Global modal keyboard handler: Cmd+Enter to save, Escape to close, Cmd+Backspace/Delete to delete
     useEffect(() => {
         if (!editingTask && !isAdding) return;
 
         const handleGlobalModalKeyDown = (e: KeyboardEvent) => {
-            // Cmd+Enter / Ctrl+Enter = Save
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            // Cmd+Enter / Ctrl+Enter / Cmd+S / Ctrl+S = Save
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
                 e.preventDefault();
                 if (editingTask) {
                     handleSaveTaskRef.current();
@@ -665,6 +689,23 @@ export const Board: React.FC = () => {
             if (e.key === 'Escape') {
                 if (editingTask) closeTaskModalWithConfirmRef.current();
                 if (isAdding) setIsAdding(false);
+                return;
+            }
+            // Cmd+Backspace (Mac) or Delete (Windows) = Delete task (edit mode only)
+            if ((e.metaKey && e.key === 'Backspace') || e.key === 'Delete') {
+                const active = document.activeElement;
+                const isEditable = active instanceof HTMLInputElement ||
+                    active instanceof HTMLTextAreaElement ||
+                    (active instanceof HTMLElement && active.isContentEditable);
+                // 入力欄がフォーカスされていても、空なら削除を実行
+                if (isEditable) {
+                    const value = (active as HTMLInputElement | HTMLTextAreaElement).value || '';
+                    if (value.length > 0) return; // 入力があれば通常の削除操作
+                }
+                if (editingTask) {
+                    e.preventDefault();
+                    handleDeleteTaskRef.current();
+                }
                 return;
             }
         };
@@ -1266,7 +1307,7 @@ export const Board: React.FC = () => {
                             <button onClick={() => setActiveProject(null)} className="back-btn">
                                 ← Back  ⌫
                             </button>
-                            <h1 className="text-xl">{project.name}</h1>
+                            <h1 className="text-lg">{project.name}</h1>
                         </div>
 
                         <div className="flex gap-2">
@@ -1299,7 +1340,7 @@ export const Board: React.FC = () => {
                                 Compact
                             </button>
                         )}
-                        <button className="btn btn-primary" onClick={openNewTaskModal}>+ New Task</button>
+                        <button className="btn btn-primary" onClick={openNewTaskModal}>+ New Task ⏎</button>
                     </div>
                 </header>
 
@@ -1620,71 +1661,159 @@ export const Board: React.FC = () => {
                                         </button>
                                         <div className="form-group" style={{ flex: 1, minWidth: '120px' }}>
                                             <label className="form-label">Start Date</label>
-                                            <input
-                                                ref={startDateRef}
-                                                type="date"
-                                                className="form-input"
-                                                value={editStartDate}
-                                                onChange={(e) => setEditStartDate(e.target.value)}
-                                                onKeyDown={handleStartDateKeyDown}
-                                                onClick={() => {
-                                                    if (startDateRef.current) {
-                                                        startDateSegmentRef.current = getDateSegmentFromSelection(startDateRef.current);
-                                                    }
-                                                }}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    ref={startDateRef}
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={editStartDate}
+                                                    onChange={(e) => setEditStartDate(e.target.value)}
+                                                    onKeyDown={handleStartDateKeyDown}
+                                                    onClick={() => {
+                                                        if (startDateRef.current) {
+                                                            startDateSegmentRef.current = getDateSegmentFromSelection(startDateRef.current);
+                                                        }
+                                                    }}
+                                                    min="0000-01-01"
+                                                    max="9999-12-31"
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowStartDatePicker(true)}
+                                                    aria-label="日付を選択"
+                                                >
+                                                    📅
+                                                </button>
+                                            </div>
+                                            {showStartDatePicker && (
+                                                <DateWheelPicker
+                                                    value={editStartDate}
+                                                    onChange={(date) => {
+                                                        setEditStartDate(date);
+                                                        setShowStartDatePicker(false);
+                                                        saveModalState({ startDate: date });
+                                                    }}
+                                                    onCancel={() => setShowStartDatePicker(false)}
+                                                />
+                                            )}
                                         </div>
-                                        <div className="form-group" style={{ minWidth: '90px' }}>
+                                        <div className="form-group" style={{ minWidth: '120px' }}>
                                             <label className="form-label">Start Time</label>
-                                            <input
-                                                ref={startTimeRef}
-                                                type="time"
-                                                className="form-input"
-                                                value={editStartTime}
-                                                onChange={(e) => setEditStartTime(e.target.value)}
-                                                onKeyDown={handleStartTimeKeyDown}
-                                                onClick={() => {
-                                                    if (startTimeRef.current) {
-                                                        startTimeSegmentRef.current = getTimeSegmentFromSelection(startTimeRef.current);
-                                                    }
-                                                }}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    ref={startTimeRef}
+                                                    type="time"
+                                                    className="form-input"
+                                                    value={editStartTime}
+                                                    onChange={(e) => setEditStartTime(e.target.value)}
+                                                    onKeyDown={handleStartTimeKeyDown}
+                                                    onClick={() => {
+                                                        if (startTimeRef.current) {
+                                                            startTimeSegmentRef.current = getTimeSegmentFromSelection(startTimeRef.current);
+                                                        }
+                                                    }}
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowStartTimePicker(true)}
+                                                    aria-label="時間を選択"
+                                                >
+                                                    🕐
+                                                </button>
+                                            </div>
+                                            {showStartTimePicker && (
+                                                <TimeWheelPicker
+                                                    value={editStartTime}
+                                                    onChange={(time) => {
+                                                        setEditStartTime(time);
+                                                        setShowStartTimePicker(false);
+                                                        saveModalState({ startTime: time });
+                                                    }}
+                                                    onCancel={() => setShowStartTimePicker(false)}
+                                                />
+                                            )}
                                         </div>
                                         <div className="form-group" style={{ flex: 1, minWidth: '120px' }}>
                                             <label className="form-label">Due Date</label>
-                                            <input
-                                                ref={dueDateRef}
-                                                type="date"
-                                                className="form-input"
-                                                value={editDueDate}
-                                                onChange={(e) => setEditDueDate(e.target.value)}
-                                                onKeyDown={handleDueDateKeyDown}
-                                                onClick={() => {
-                                                    if (dueDateRef.current) {
-                                                        dueDateSegmentRef.current = getDateSegmentFromSelection(dueDateRef.current);
-                                                    }
-                                                }}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    ref={dueDateRef}
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={editDueDate}
+                                                    onChange={(e) => setEditDueDate(e.target.value)}
+                                                    onKeyDown={handleDueDateKeyDown}
+                                                    onClick={() => {
+                                                        if (dueDateRef.current) {
+                                                            dueDateSegmentRef.current = getDateSegmentFromSelection(dueDateRef.current);
+                                                        }
+                                                    }}
+                                                    min="0000-01-01"
+                                                    max="9999-12-31"
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowDueDatePicker(true)}
+                                                    aria-label="日付を選択"
+                                                >
+                                                    📅
+                                                </button>
+                                            </div>
+                                            {showDueDatePicker && (
+                                                <DateWheelPicker
+                                                    value={editDueDate}
+                                                    onChange={(date) => {
+                                                        setEditDueDate(date);
+                                                        setShowDueDatePicker(false);
+                                                        saveModalState({ dueDate: date });
+                                                    }}
+                                                    onCancel={() => setShowDueDatePicker(false)}
+                                                />
+                                            )}
                                         </div>
-                                        <div className="form-group" style={{ minWidth: '90px' }}>
+                                        <div className="form-group" style={{ minWidth: '120px' }}>
                                             <label className="form-label">Due Time</label>
-                                            <input
-                                                ref={dueTimeRef}
-                                                type="time"
-                                                className="form-input"
-                                                value={editDueTime}
-                                                onChange={(e) => setEditDueTime(e.target.value)}
-                                                onKeyDown={handleDueTimeKeyDown}
-                                                onClick={() => {
-                                                    if (dueTimeRef.current) {
-                                                        dueTimeSegmentRef.current = getTimeSegmentFromSelection(dueTimeRef.current);
-                                                    }
-                                                }}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    ref={dueTimeRef}
+                                                    type="time"
+                                                    className="form-input"
+                                                    value={editDueTime}
+                                                    onChange={(e) => setEditDueTime(e.target.value)}
+                                                    onKeyDown={handleDueTimeKeyDown}
+                                                    onClick={() => {
+                                                        if (dueTimeRef.current) {
+                                                            dueTimeSegmentRef.current = getTimeSegmentFromSelection(dueTimeRef.current);
+                                                        }
+                                                    }}
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowDueTimePicker(true)}
+                                                    aria-label="時間を選択"
+                                                >
+                                                    🕐
+                                                </button>
+                                            </div>
+                                            {showDueTimePicker && (
+                                                <TimeWheelPicker
+                                                    value={editDueTime}
+                                                    onChange={(time) => {
+                                                        setEditDueTime(time);
+                                                        setShowDueTimePicker(false);
+                                                        saveModalState({ dueTime: time });
+                                                    }}
+                                                    onCancel={() => setShowDueTimePicker(false)}
+                                                />
+                                            )}
                                         </div>
                                         <button
                                             ref={resetDateRef}
@@ -1750,7 +1879,7 @@ export const Board: React.FC = () => {
                                             if (e.key === 'ArrowUp') { e.preventDefault(); url2Ref.current?.focus(); }
                                             else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); focusNext(cancelBtnRef); }
                                             else if (e.key === 'ArrowLeft') { e.preventDefault(); focusPrev(cancelBtnRef); }
-                                        }}>Cancel</button>
+                                        }}>Cancel (Esc)</button>
                                         <button ref={saveBtnRef} className="btn btn-primary" onClick={() => {
                                             if (editingTask) handleSaveTask();
                                             else handleSaveNewTask();
@@ -1759,7 +1888,7 @@ export const Board: React.FC = () => {
                                             else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); focusNext(saveBtnRef); }
                                             else if (e.key === 'ArrowLeft') { e.preventDefault(); focusPrev(saveBtnRef); }
                                         }}>
-                                            {editingTask ? 'Save (⌘+⏎)' : 'Create Task (⌘+⏎)'}
+                                            {editingTask ? 'Save (⌘S)' : 'Create Task (⌘S)'}
                                         </button>
                                     </div>
                                 </div>
@@ -1824,7 +1953,7 @@ export const Board: React.FC = () => {
                             const unstarredTasks = colTasks.filter(t => !t.starred);
                             const sortedTasks = [...starredTasks, ...unstarredTasks];
                             return (
-                                <Droppable key={col.id} id={col.id} className="board-column" style={{ height: 'calc(100vh - 124px - 1rem)' }}>
+                                <Droppable key={col.id} id={col.id} className="board-column">
                                     <SortableContext
                                         id={col.id}
                                         items={sortedTasks.map(t => t.id)}

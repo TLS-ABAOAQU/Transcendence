@@ -25,6 +25,7 @@ export const SortableItem: React.FC<Props> = ({ id, children, disabled }) => {
         touchAction: 'none',
         minWidth: 0,
         overflow: 'hidden',
+        flexShrink: 0,
     };
 
     return (

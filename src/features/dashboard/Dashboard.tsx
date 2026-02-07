@@ -20,6 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { SortableItem } from '../../components/SortableItem';
 import { HistoryTimeline } from '../history/HistoryTimeline';
+import { DateWheelPicker } from '../../components/WheelPicker';
 import './Dashboard.css';
 
 // Marquee component for long project names
@@ -78,6 +79,10 @@ export const Dashboard: React.FC = () => {
     const [deadline, setDeadline] = useState('');
     const [colorConfirmed, setColorConfirmed] = useState(false);
 
+    // Wheel Picker visibility states
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showDeadlinePicker, setShowDeadlinePicker] = useState(false);
+
     // Modal interaction ref to prevent closing when dragging from inside to outside
     const mouseDownInsideModal = useRef(false);
     const modalContentRef = useRef<HTMLDivElement>(null);
@@ -93,14 +98,16 @@ export const Dashboard: React.FC = () => {
     // Refs for stable closures in event handlers
     const handleSubmitRef = useRef<() => void>(() => {});
     const autoSaveCloseRef = useRef<() => void>(() => {});
+    const openCreateModalRef = useRef<() => void>(() => {});
+    const handleDeleteRef = useRef<() => void>(() => {});
 
-    // Global modal keyboard handler: Cmd+Enter to save, Escape to auto-save & close
+    // Global modal keyboard handler: Cmd+Enter to save, Escape to auto-save & close, Cmd+Backspace/Delete to delete
     useEffect(() => {
         if (!modalMode) return;
 
         const handleGlobalModalKeyDown = (e: KeyboardEvent) => {
-            // Cmd+Enter / Ctrl+Enter = Save
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            // Cmd+Enter / Ctrl+Enter / Cmd+S / Ctrl+S = Save
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
                 e.preventDefault();
                 handleSubmitRef.current();
                 return;
@@ -110,10 +117,49 @@ export const Dashboard: React.FC = () => {
                 autoSaveCloseRef.current();
                 return;
             }
+            // Cmd+Backspace (Mac) or Delete (Windows) = Delete project (edit mode only)
+            if ((e.metaKey && e.key === 'Backspace') || e.key === 'Delete') {
+                const active = document.activeElement;
+                const isEditable = active instanceof HTMLInputElement ||
+                    active instanceof HTMLTextAreaElement ||
+                    (active instanceof HTMLElement && active.isContentEditable);
+                // 入力欄がフォーカスされていても、空なら削除を実行
+                if (isEditable) {
+                    const value = (active as HTMLInputElement | HTMLTextAreaElement).value || '';
+                    if (value.length > 0) return; // 入力があれば通常の削除操作
+                }
+                e.preventDefault();
+                handleDeleteRef.current();
+                return;
+            }
         };
 
         window.addEventListener('keydown', handleGlobalModalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalModalKeyDown);
+    }, [modalMode]);
+
+    // Enter key to open new project modal (when no modal is open)
+    useEffect(() => {
+        if (modalMode) return; // Skip if modal is open
+
+        const handleEnterKey = (e: KeyboardEvent) => {
+            // Skip if modifier keys are held
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            if (e.key === 'Enter') {
+                // Only trigger if no input/textarea is focused
+                const active = document.activeElement;
+                const isEditable = active instanceof HTMLInputElement ||
+                    active instanceof HTMLTextAreaElement ||
+                    (active instanceof HTMLElement && active.isContentEditable);
+                if (isEditable) return;
+                e.preventDefault();
+                openCreateModalRef.current();
+            }
+        };
+
+        window.addEventListener('keydown', handleEnterKey);
+        return () => window.removeEventListener('keydown', handleEnterKey);
     }, [modalMode]);
 
     // Focus trap: Tab/Shift+Tab wraps within modal
@@ -188,6 +234,7 @@ export const Dashboard: React.FC = () => {
         setColorConfirmed(false);
         setEditingId(null);
     };
+    openCreateModalRef.current = openCreateModal;
 
     const openEditModal = (e: React.MouseEvent, project: Project) => {
         e.stopPropagation(); // Prevent navigating to board
@@ -242,6 +289,7 @@ export const Dashboard: React.FC = () => {
             closeModal();
         }
     };
+    handleDeleteRef.current = handleDelete;
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
@@ -277,7 +325,7 @@ export const Dashboard: React.FC = () => {
                         <p className="text-muted">Manage your personal goals and tasks</p>
                     </div>
                     <button className="btn btn-primary" onClick={openCreateModal}>
-                        + New Project
+                        + New Project ⏎
                     </button>
                 </header>
 
@@ -354,23 +402,67 @@ export const Dashboard: React.FC = () => {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                         <div className="form-group">
                                             <label className="form-label">Start Date (Optional)</label>
-                                            <input
-                                                type="date"
-                                                className="form-input"
-                                                value={startDate}
-                                                onChange={(e) => setStartDate(e.target.value)}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    min="0000-01-01"
+                                                    max="9999-12-31"
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowStartDatePicker(true)}
+                                                    aria-label="日付を選択"
+                                                >
+                                                    📅
+                                                </button>
+                                            </div>
+                                            {showStartDatePicker && (
+                                                <DateWheelPicker
+                                                    value={startDate}
+                                                    onChange={(date) => {
+                                                        setStartDate(date);
+                                                        setShowStartDatePicker(false);
+                                                    }}
+                                                    onCancel={() => setShowStartDatePicker(false)}
+                                                />
+                                            )}
                                         </div>
                                         <div className="form-group">
                                             <label className="form-label">Deadline (Optional)</label>
-                                            <input
-                                                type="date"
-                                                className="form-input"
-                                                value={deadline}
-                                                onChange={(e) => setDeadline(e.target.value)}
-                                                style={{ colorScheme: 'dark' }}
-                                            />
+                                            <div className="picker-input-wrapper">
+                                                <input
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={deadline}
+                                                    onChange={(e) => setDeadline(e.target.value)}
+                                                    min="0000-01-01"
+                                                    max="9999-12-31"
+                                                    style={{ colorScheme: 'dark' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="picker-trigger-btn"
+                                                    onClick={() => setShowDeadlinePicker(true)}
+                                                    aria-label="日付を選択"
+                                                >
+                                                    📅
+                                                </button>
+                                            </div>
+                                            {showDeadlinePicker && (
+                                                <DateWheelPicker
+                                                    value={deadline}
+                                                    onChange={(date) => {
+                                                        setDeadline(date);
+                                                        setShowDeadlinePicker(false);
+                                                    }}
+                                                    onCancel={() => setShowDeadlinePicker(false)}
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
@@ -381,10 +473,10 @@ export const Dashboard: React.FC = () => {
                                             </button>
                                         )}
                                         <button type="button" className="btn text-muted hover:text-white" onClick={cancelModal}>
-                                            Cancel
+                                            Cancel (Esc)
                                         </button>
                                         <button type="submit" className="btn btn-primary">
-                                            {modalMode === 'create' ? 'Create Project' : 'Save (⌘+⏎)'}
+                                            {modalMode === 'create' ? 'Create Project' : 'Save (⌘S)'}
                                         </button>
                                     </div>
                                 </form>

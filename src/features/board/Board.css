@@ -8,13 +8,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .back-btn {
     color: var(--color-text-muted);
-    font-size: 1rem;
-    margin-right: 1rem;
+    font-size: 0.875rem;
+    margin-right: 0.75rem;
 }
 
 .back-btn:hover {
@@ -41,15 +41,16 @@
 .board-columns {
     display: flex;
     gap: 1rem;
-    overflow-x: hidden;
+    overflow-x: auto; /* 横スクロール可、縦スクロール禁止 */
+    overflow-y: hidden;
     padding-bottom: 1rem;
-    height: calc(100vh - 124px); /* タイムライン・カレンダーと同じ高さ */
+    height: calc(100vh - 124px);
 }
 
 .board-column {
     flex: 1;
     min-width: 0;
-    height: calc(100vh - 124px - 1rem); /* ビューポート基準で直接指定 */
+    height: calc(100vh - 113px);
     background-color: rgba(30, 41, 59, 0.5);
     /* Slate 800 / 0.5 */
     border-radius: var(--radius-md);
@@ -57,6 +58,7 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    overflow-y: auto; /* カラム内縦スクロールOK */
 }
 
 .column-title {
@@ -367,13 +369,13 @@
 
 /* Compact mode text toggle */
 .compact-text-toggle {
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.45);
     background: rgba(255, 255, 255, 0.06);
-    border: 1.5px solid rgba(255, 255, 255, 0.40);
-    border-radius: 30px;
-    padding: 6px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    border-radius: 20px;
+    padding: 2px 8px;
     cursor: pointer;
     user-select: none;
     transition: all 0.2s ease;
@@ -413,9 +415,39 @@
     display: none;
 }
 
-/* Disable focus on date/time picker icons */
+/* Hide native date/time picker icons (replaced by custom wheel picker buttons) */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
-    pointer-events: none;
+    display: none;
+}
+
+/* Picker input wrapper */
+.picker-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.picker-input-wrapper input {
+    padding-right: 32px;
+}
+
+/* Picker trigger button */
+.picker-trigger-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
     opacity: 0.6;
+    transition: opacity 0.2s ease;
+    padding: 4px;
+    line-height: 1;
+}
+
+.picker-trigger-btn:hover {
+    opacity: 1;
 }

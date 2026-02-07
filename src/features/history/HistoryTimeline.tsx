@@ -135,7 +135,7 @@ export const HistoryTimeline: React.FC = () => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const ITEM_HEIGHT = 44;
 
-    // ESC key to close, Enter key to select focused item
+    // ESC key to close, Enter key to select focused item, Cmd+Backspace/Delete to clear history
     useEffect(() => {
         if (!isExpanded) return;
 
@@ -156,7 +156,7 @@ export const HistoryTimeline: React.FC = () => {
 
                 // Find the item closest to center
                 const items = scroll.querySelectorAll('.picker-item');
-                let closestItem: Element | null = null;
+                let closestItem: HTMLElement | null = null;
                 let closestDistance = Infinity;
 
                 items.forEach((item) => {
@@ -172,15 +172,25 @@ export const HistoryTimeline: React.FC = () => {
                 });
 
                 // Click the closest item (if not current state)
-                if (closestItem && !closestItem.classList.contains('current')) {
-                    (closestItem as HTMLElement).click();
+                if (closestItem) {
+                    const el = closestItem as HTMLElement;
+                    if (!el.classList.contains('current')) {
+                        el.click();
+                    }
+                }
+            }
+            // Cmd+Backspace (Mac) or Delete (Windows) = Clear all history
+            if ((e.metaKey && e.key === 'Backspace') || e.key === 'Delete') {
+                e.preventDefault();
+                if (confirm('全ての履歴を削除しますか？')) {
+                    temporalStore.getState().clear();
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isExpanded]);
+    }, [isExpanded, temporalStore]);
 
     // Ref to track if panel is expanded (for use in subscription callback)
     const isExpandedRef = useRef(isExpanded);
@@ -223,9 +233,6 @@ export const HistoryTimeline: React.FC = () => {
 
         return unsubscribe;
     }, [temporalStore]);
-
-    // iOS picker constants
-    const SPACER_HEIGHT = 176; // 4行分のスペース（9行表示用）
 
     // Update visual styles based on distance from center (iOS picker effect)
     const updateVisuals = useCallback(() => {

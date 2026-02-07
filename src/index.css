@@ -32,6 +32,11 @@
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden; /* ページ全体のスクロール禁止 */
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-bg);
@@ -112,9 +117,10 @@ button {
 }
 
 .btn {
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.5rem;
   border-radius: var(--radius-md);
   font-weight: 500;
+  font-size: 0.75rem;
   transition: all 0.2s ease;
 }
 

@@ -772,11 +772,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
             <div
                 style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '24px 32px', backgroundColor: theme.headerBg, gap: '16px', minHeight: '120px',
+                    padding: '12px 32px', backgroundColor: theme.headerBg, gap: '16px', minHeight: '80px',
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h2 style={{ margin: 0, fontSize: '42px', color: theme.text, flexShrink: 0, minWidth: '240px' }}>
+                    <h2 style={{ margin: 0, fontSize: '32px', color: theme.text, flexShrink: 0, minWidth: '200px' }}>
                         {headerLabel}
                     </h2>
 
@@ -785,9 +785,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                         onClick={() => { const newVal = !hideDone; setHideDone(newVal); onHideDoneChange?.(newVal); }}
                         title={hideDone ? 'Show Done tasks' : 'Hide Done tasks'}
                         style={{
-                            padding: '10px 26px', borderRadius: '30px',
+                            padding: '8px 20px', borderRadius: '30px',
                             border: hideDone ? '1.5px solid transparent' : '1.5px solid rgba(255, 255, 255, 0.40)',
-                            cursor: 'pointer', fontSize: '20px', fontWeight: 700,
+                            cursor: 'pointer', fontSize: '16px', fontWeight: 700,
                             backgroundColor: hideDone ? theme.primary : theme.surface,
                             color: hideDone ? 'rgba(255, 255, 255, 0.85)' : theme.textMuted,
                             transition: 'all 0.2s ease', flexShrink: 0,
@@ -811,14 +811,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                     style={{
                         display: 'flex', alignItems: 'center', flex: 1, minWidth: 0,
                         overflow: 'hidden', backgroundColor: theme.buttonBg,
-                        borderRadius: '30px', padding: '0 6px',
-                        height: '60px',
+                        borderRadius: '8px', padding: '0 2px',
+                        height: '48px',
                         transition: 'background-color 0.15s ease',
                     }}
                 >
                     {undatedTasks.length > 0 ? (
                         <div style={{
-                            display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 8px',
+                            display: 'flex', gap: '6px', overflowX: 'auto', padding: '0 4px',
                             scrollbarWidth: 'thin', scrollbarColor: `${theme.borderStrong} transparent`,
                             alignItems: 'center', height: '100%',
                         }}>
@@ -844,9 +844,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                         }}
                                         onClick={() => onTaskClick?.(task)}
                                         style={{
-                                            fontSize: '20px', padding: '4px 16px',
+                                            fontSize: '16px', padding: '4px 12px',
                                             backgroundColor: taskColor, color: '#000000',
-                                            borderRadius: '26px', whiteSpace: 'nowrap',
+                                            borderRadius: '14px', whiteSpace: 'nowrap',
                                             cursor: 'grab', fontWeight: 700, flexShrink: 0,
                                             opacity: isDraggingThis ? 0.5 : 1,
                                         }}
