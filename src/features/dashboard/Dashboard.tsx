@@ -68,7 +68,12 @@ const MarqueeProjectName: React.FC<{ name: string }> = ({ name }) => {
     );
 };
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+    commandRef?: React.MutableRefObject<((cmd: string) => void) | null>;
+    commandPaletteOpen?: boolean;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPaletteOpen }) => {
     const { projects, addProject, updateProject, deleteProject, setActiveProject, reorderProjects } = useProjects();
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,6 +95,11 @@ export const Dashboard: React.FC = () => {
     // DnD State
     const [activeId, setActiveId] = useState<string | null>(null);
 
+    // History panel state
+    const [historyExpanded, setHistoryExpanded] = useState(false);
+    const historyExpandedRef = useRef(historyExpanded);
+    historyExpandedRef.current = historyExpanded;
+
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -100,6 +110,8 @@ export const Dashboard: React.FC = () => {
     const autoSaveCloseRef = useRef<() => void>(() => {});
     const openCreateModalRef = useRef<() => void>(() => {});
     const handleDeleteRef = useRef<() => void>(() => {});
+    const commandPaletteOpenRef = useRef(commandPaletteOpen);
+    commandPaletteOpenRef.current = commandPaletteOpen;
 
     // Global modal keyboard handler: Cmd+Enter to save, Escape to auto-save & close, Cmd+Backspace/Delete to delete
     useEffect(() => {
@@ -113,7 +125,9 @@ export const Dashboard: React.FC = () => {
                 return;
             }
             // Escape = auto-save and close
+            // Priority: Launcher > History > Modal, so skip if history is open
             if (e.key === 'Escape') {
+                if (historyExpandedRef.current) return; // Let history panel handle ESC first
                 autoSaveCloseRef.current();
                 return;
             }
@@ -138,29 +152,6 @@ export const Dashboard: React.FC = () => {
         return () => window.removeEventListener('keydown', handleGlobalModalKeyDown);
     }, [modalMode]);
 
-    // Enter key to open new project modal (when no modal is open)
-    useEffect(() => {
-        if (modalMode) return; // Skip if modal is open
-
-        const handleEnterKey = (e: KeyboardEvent) => {
-            // Skip if modifier keys are held
-            if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-            if (e.key === 'Enter') {
-                // Only trigger if no input/textarea is focused
-                const active = document.activeElement;
-                const isEditable = active instanceof HTMLInputElement ||
-                    active instanceof HTMLTextAreaElement ||
-                    (active instanceof HTMLElement && active.isContentEditable);
-                if (isEditable) return;
-                e.preventDefault();
-                openCreateModalRef.current();
-            }
-        };
-
-        window.addEventListener('keydown', handleEnterKey);
-        return () => window.removeEventListener('keydown', handleEnterKey);
-    }, [modalMode]);
 
     // Focus trap: Tab/Shift+Tab wraps within modal
     useEffect(() => {
@@ -235,6 +226,30 @@ export const Dashboard: React.FC = () => {
         setEditingId(null);
     };
     openCreateModalRef.current = openCreateModal;
+
+    // Command palette handler
+    useEffect(() => {
+        if (commandRef) {
+            commandRef.current = (cmd: string) => {
+                switch (cmd) {
+                    case 'new':
+                        openCreateModal();
+                        break;
+                    case 'history':
+                        setHistoryExpanded(prev => !prev);
+                        break;
+                    case 'clear-history':
+                        // HistoryTimeline handles this internally
+                        break;
+                }
+            };
+        }
+        return () => {
+            if (commandRef) {
+                commandRef.current = null;
+            }
+        };
+    }, [commandRef]);
 
     const openEditModal = (e: React.MouseEvent, project: Project) => {
         e.stopPropagation(); // Prevent navigating to board
@@ -321,11 +336,11 @@ export const Dashboard: React.FC = () => {
             <div>
                 <header className="dashboard-header">
                     <div>
-                        <h1 className="dashboard-title">Projects</h1>
+                        <h1 className="dashboard-title">Project　⌘K</h1>
                         <p className="text-muted">Manage your personal goals and tasks</p>
                     </div>
                     <button className="btn btn-primary" onClick={openCreateModal}>
-                        + New Project ⏎
+                        + New Project
                     </button>
                 </header>
 
@@ -603,7 +618,10 @@ export const Dashboard: React.FC = () => {
                     })() : null}
                 </DragOverlay>
             </div>
-            <HistoryTimeline />
+            <HistoryTimeline
+                expanded={historyExpanded}
+                onExpandedChange={setHistoryExpanded}
+            />
         </DndContext>
     );
 };

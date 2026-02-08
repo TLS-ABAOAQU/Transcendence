@@ -95,9 +95,22 @@ function generateDescription(prevState: StateSnapshot | null, currentState: Stat
     return 'State changed';
 }
 
-export const HistoryTimeline: React.FC = () => {
+interface HistoryTimelineProps {
+    expanded?: boolean;
+    onExpandedChange?: (expanded: boolean) => void;
+}
+
+export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ expanded, onExpandedChange }) => {
     const temporalStore = useTemporalStore();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpandedInternal, setIsExpandedInternal] = useState(false);
+
+    // Use external state if provided, otherwise use internal state
+    const isExpanded = expanded !== undefined ? expanded : isExpandedInternal;
+    const setIsExpanded = (value: boolean | ((prev: boolean) => boolean)) => {
+        const newValue = typeof value === 'function' ? value(isExpanded) : value;
+        setIsExpandedInternal(newValue);
+        onExpandedChange?.(newValue);
+    };
     const [pastStates, setPastStates] = useState<StateSnapshot[]>([]);
     const [futureStates, setFutureStates] = useState<StateSnapshot[]>([]);
 
@@ -142,6 +155,7 @@ export const HistoryTimeline: React.FC = () => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
+                e.stopImmediatePropagation(); // Stop other window listeners from receiving this event
                 setIsExpanded(false);
             }
             // Enterキーで中央にフォーカスしているアイテムを選択

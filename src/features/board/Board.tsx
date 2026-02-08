@@ -32,7 +32,13 @@ const COLUMNS: { id: Status; title: string }[] = [
     { id: 'done', title: 'Done' },
 ];
 
-export const Board: React.FC = () => {
+interface BoardProps {
+    commandRef?: React.MutableRefObject<((cmd: string, task?: Task) => void) | null>;
+    commandPaletteOpen?: boolean;
+    onViewModeChange?: (mode: 'board' | 'calendar' | 'timeline') => void;
+}
+
+export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, onViewModeChange }) => {
     const { projects, activeProjectId, setActiveProject, addTask, updateTask, deleteTask, reorderTasks, updateViewSettings, canUndo, canRedo } = useProjects();
     const project = projects.find((p) => p.id === activeProjectId);
     const [isAdding, setIsAdding] = useState(false);
@@ -182,8 +188,10 @@ export const Board: React.FC = () => {
     canRedoRef.current = canRedo;
     const editingTaskRef = useRef(editingTask);
     const isAddingRef = useRef(isAdding);
+    const commandPaletteOpenRef = useRef(commandPaletteOpen);
     editingTaskRef.current = editingTask;
     isAddingRef.current = isAdding;
+    commandPaletteOpenRef.current = commandPaletteOpen;
     const modalUndoRef = useRef(modalUndo);
     modalUndoRef.current = modalUndo;
     const modalRedoRef = useRef(modalRedo);
@@ -224,18 +232,30 @@ export const Board: React.FC = () => {
         return () => window.removeEventListener('keydown', handleBoardUndoRedoToast);
     }, [showToast]);
 
-    // ESC / Backspace → navigate back to dashboard (when no modal is open)
-    // Enter → open new task modal (when no modal is open)
+    // ESC / Backspace → navigate back to dashboard
+    // Priority: 1. Launcher, 2. History, 3. Edit Modal, 4. Back to dashboard
     useEffect(() => {
         const handleBackNavigation = (e: KeyboardEvent) => {
-            // Skip if any modal is open
-            if (editingTaskRef.current || isAddingRef.current) return;
             // Skip if modifier keys are held
             if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-            // ESC key no longer triggers back navigation (removed per user request)
+            if (e.key === 'Escape') {
+                // Priority 1: Command palette handles its own ESC
+                if (commandPaletteOpenRef.current) return;
+                // Priority 2: History panel
+                if (historyExpandedRef.current) return; // History handles its own ESC
+                // Priority 3: Edit modal
+                if (editingTaskRef.current || isAddingRef.current) return; // Modal handles its own ESC
+                // Priority 4: Back to dashboard
+                e.preventDefault();
+                setActiveProject(null);
+            }
 
             if (e.key === 'Backspace') {
+                // Skip if any modal/panel is open
+                if (commandPaletteOpenRef.current) return;
+                if (historyExpandedRef.current) return;
+                if (editingTaskRef.current || isAddingRef.current) return;
                 // Only trigger if no input/textarea is focused
                 const active = document.activeElement;
                 const isEditable = active instanceof HTMLInputElement ||
@@ -244,18 +264,6 @@ export const Board: React.FC = () => {
                 if (isEditable) return;
                 e.preventDefault();
                 setActiveProject(null);
-            }
-
-            // Enter key → open new task modal
-            if (e.key === 'Enter') {
-                // Only trigger if no input/textarea is focused
-                const active = document.activeElement;
-                const isEditable = active instanceof HTMLInputElement ||
-                    active instanceof HTMLTextAreaElement ||
-                    (active instanceof HTMLElement && active.isContentEditable);
-                if (isEditable) return;
-                e.preventDefault();
-                openNewTaskModalRef.current();
             }
         };
         window.addEventListener('keydown', handleBackNavigation);
@@ -686,7 +694,11 @@ export const Board: React.FC = () => {
                 return;
             }
             // Escape = Close with confirmation if unsaved changes
+            // Priority: Launcher > History > Modal, so skip if history is open
             if (e.key === 'Escape') {
+                if (historyExpandedRef.current) return; // Let history panel handle ESC first
+                e.preventDefault();
+                e.stopPropagation();
                 if (editingTask) closeTaskModalWithConfirmRef.current();
                 if (isAdding) setIsAdding(false);
                 return;
@@ -1292,6 +1304,77 @@ export const Board: React.FC = () => {
     const [viewMode, setViewMode] = useState<'board' | 'calendar' | 'timeline'>('board');
     const [compactMode, setCompactMode] = useState(false);
 
+    // Refs for sub-view commands
+    const calendarCommandRef = useRef<((cmd: string) => void) | null>(null);
+    const timelineCommandRef = useRef<((cmd: string) => void) | null>(null);
+    const [historyExpanded, setHistoryExpanded] = useState(false);
+    const historyExpandedRef = useRef(historyExpanded);
+    historyExpandedRef.current = historyExpanded;
+
+    // Command palette handler
+    useEffect(() => {
+        if (commandRef) {
+            commandRef.current = (cmd: string, task?: Task) => {
+                switch (cmd) {
+                    case 'new':
+                        openNewTaskModal();
+                        break;
+                    case 'board':
+                        setViewMode('board');
+                        onViewModeChange?.('board');
+                        break;
+                    case 'calendar':
+                        setViewMode('calendar');
+                        onViewModeChange?.('calendar');
+                        break;
+                    case 'timeline':
+                        setViewMode('timeline');
+                        onViewModeChange?.('timeline');
+                        break;
+                    case 'compact':
+                        setCompactMode(prev => !prev);
+                        break;
+                    case 'openTask':
+                        if (task) {
+                            openTaskModal(task);
+                        }
+                        break;
+                    // Calendar/Timeline commands - route to sub-views
+                    case 'hide-done':
+                    case 'go-today':
+                    case 'prev':
+                    case 'next':
+                        if (viewMode === 'calendar' && calendarCommandRef.current) {
+                            calendarCommandRef.current(cmd);
+                        } else if (viewMode === 'timeline' && timelineCommandRef.current) {
+                            timelineCommandRef.current(cmd);
+                        }
+                        break;
+                    // Timeline-only commands
+                    case 'view-':
+                    case 'view0':
+                    case 'view+':
+                        if (viewMode === 'timeline' && timelineCommandRef.current) {
+                            timelineCommandRef.current(cmd);
+                        }
+                        break;
+                    // History commands (undo/redo handled by App.tsx)
+                    case 'history':
+                        setHistoryExpanded(prev => !prev);
+                        break;
+                    case 'clear-history':
+                        // Will be handled by HistoryTimeline itself
+                        break;
+                }
+            };
+        }
+        return () => {
+            if (commandRef) {
+                commandRef.current = null;
+            }
+        };
+    }, [commandRef, viewMode]);
+
     return (
         <DndContext
             sensors={sensors}
@@ -1305,26 +1388,26 @@ export const Board: React.FC = () => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center">
                             <button onClick={() => setActiveProject(null)} className="back-btn">
-                                ← Back  ⌫
+                                ← Back ⌫
                             </button>
                             <h1 className="text-lg">{project.name}</h1>
                         </div>
 
                         <div className="flex gap-2">
                             <button
-                                onClick={() => setViewMode('board')}
+                                onClick={() => { setViewMode('board'); onViewModeChange?.('board'); }}
                                 className={`btn ${viewMode === 'board' ? 'btn-primary' : 'text-muted hover:text-white bg-white/5'}`}
                             >
                                 Board
                             </button>
                             <button
-                                onClick={() => setViewMode('calendar')}
+                                onClick={() => { setViewMode('calendar'); onViewModeChange?.('calendar'); }}
                                 className={`btn ${viewMode === 'calendar' ? 'btn-primary' : 'text-muted hover:text-white bg-white/5'}`}
                             >
                                 Calendar
                             </button>
                             <button
-                                onClick={() => setViewMode('timeline')}
+                                onClick={() => { setViewMode('timeline'); onViewModeChange?.('timeline'); }}
                                 className={`btn ${viewMode === 'timeline' ? 'btn-primary' : 'text-muted hover:text-white bg-white/5'}`}
                             >
                                 Timeline
@@ -1340,7 +1423,7 @@ export const Board: React.FC = () => {
                                 Compact
                             </button>
                         )}
-                        <button className="btn btn-primary" onClick={openNewTaskModal}>+ New Task ⏎</button>
+                        <button className="btn btn-primary" onClick={openNewTaskModal}>+ New Task</button>
                     </div>
                 </header>
 
@@ -1916,6 +1999,7 @@ export const Board: React.FC = () => {
                             onHideDoneChange={(hideDone) => {
                                 updateViewSettings(project.id, { calendarHideDone: hideDone });
                             }}
+                            commandRef={calendarCommandRef}
                         />
                     </div>
                 )}
@@ -1940,6 +2024,7 @@ export const Board: React.FC = () => {
                             onViewRangeChange={(range) => {
                                 updateViewSettings(project.id, { timelineViewRange: range });
                             }}
+                            commandRef={timelineCommandRef}
                         />
                     </div>
                 )}
@@ -2179,7 +2264,10 @@ export const Board: React.FC = () => {
                     {toastMessage}
                 </div>
             )}
-            <HistoryTimeline />
+            <HistoryTimeline
+                expanded={historyExpanded}
+                onExpandedChange={setHistoryExpanded}
+            />
         </DndContext>
     );
 };

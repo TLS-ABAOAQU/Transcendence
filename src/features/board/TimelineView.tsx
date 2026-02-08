@@ -12,6 +12,7 @@ interface TimelineViewProps {
     onHideDoneChange?: (hideDone: boolean) => void;
     initialViewRange?: ViewRange;
     onViewRangeChange?: (range: ViewRange) => void;
+    commandRef?: React.MutableRefObject<((cmd: string) => void) | null>;
 }
 
 type ViewRange = 'week' | 'month' | '3months';
@@ -237,7 +238,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
     );
 };
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap, initialHideDone, onHideDoneChange, initialViewRange, onViewRangeChange }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap, initialHideDone, onHideDoneChange, initialViewRange, onViewRangeChange, commandRef }) => {
     const [isDarkMode] = useState(true);
     const [viewRange, setViewRange] = useState<ViewRange>(initialViewRange ?? 'month');
     const [hideDone, setHideDone] = useState(initialHideDone ?? true);
@@ -546,6 +547,45 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
             container.scrollTo({ left: nextIndex * dayWidth, behavior: 'smooth' });
         }
     }, [days, dayWidth]);
+
+    // Command palette handler
+    useEffect(() => {
+        if (commandRef) {
+            commandRef.current = (cmd: string) => {
+                switch (cmd) {
+                    case 'hide-done':
+                        setHideDone(prev => { const newVal = !prev; onHideDoneChange?.(newVal); return newVal; });
+                        break;
+                    case 'go-today':
+                        goToToday();
+                        break;
+                    case 'prev':
+                        scrollToPrevMonth();
+                        break;
+                    case 'next':
+                        scrollToNextMonth();
+                        break;
+                    case 'view-':
+                        setViewRange('week');
+                        onViewRangeChange?.('week');
+                        break;
+                    case 'view0':
+                        setViewRange('month');
+                        onViewRangeChange?.('month');
+                        break;
+                    case 'view+':
+                        setViewRange('3months');
+                        onViewRangeChange?.('3months');
+                        break;
+                }
+            };
+        }
+        return () => {
+            if (commandRef) {
+                commandRef.current = null;
+            }
+        };
+    }, [commandRef, goToToday, scrollToPrevMonth, scrollToNextMonth, onHideDoneChange, onViewRangeChange]);
 
     const totalDays = days.length;
 

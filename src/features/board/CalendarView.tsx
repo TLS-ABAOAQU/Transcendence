@@ -28,6 +28,7 @@ interface CalendarViewProps {
     taskColorMap?: Record<string, string>;
     initialHideDone?: boolean;
     onHideDoneChange?: (hideDone: boolean) => void;
+    commandRef?: React.MutableRefObject<((cmd: string) => void) | null>;
 }
 
 interface TaskWithDates extends Task {
@@ -44,7 +45,7 @@ interface TaskSegment {
     lane: number;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, initialHideDone, onHideDoneChange }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, initialHideDone, onHideDoneChange, commandRef }) => {
     const [hideDone, setHideDone] = useState(initialHideDone ?? true);
     const [headerLabel, setHeaderLabel] = useState('');
 
@@ -480,6 +481,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
     scrollToPrevMonthBoundaryRef.current = scrollToPrevMonthBoundary;
     const scrollToNextMonthBoundaryRef = useRef(scrollToNextMonthBoundary);
     scrollToNextMonthBoundaryRef.current = scrollToNextMonthBoundary;
+
+    // Command palette handler
+    useEffect(() => {
+        if (commandRef) {
+            commandRef.current = (cmd: string) => {
+                switch (cmd) {
+                    case 'hide-done':
+                        setHideDone(prev => { const newVal = !prev; onHideDoneChange?.(newVal); return newVal; });
+                        break;
+                    case 'go-today':
+                        const now = new Date();
+                        scrollToMonth(now.getFullYear(), now.getMonth() + 1);
+                        break;
+                    case 'prev':
+                        scrollToPrevMonthBoundary();
+                        break;
+                    case 'next':
+                        scrollToNextMonthBoundary();
+                        break;
+                }
+            };
+        }
+        return () => {
+            if (commandRef) {
+                commandRef.current = null;
+            }
+        };
+    }, [commandRef, scrollToMonth, scrollToPrevMonthBoundary, scrollToNextMonthBoundary, onHideDoneChange]);
 
     useEffect(() => {
         const container = scrollContainerRef.current;
