@@ -144,25 +144,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
         }
     });
 
-    // Theme colors (dark mode only)
+    // Theme colors - use CSS variables for dynamic theming
     const theme = {
-        bg: '#1F2937',
-        cardBg: '#111827',
-        headerBg: '#1F2937',
-        text: 'rgba(249, 250, 251, 0.85)',
-        textMuted: '#9CA3AF',
-        textFaded: '#6B7280',
-        border: '#374151',
-        borderStrong: '#4B5563',
-        buttonBg: '#374151',
-        buttonActiveBg: '#4B5563',
-        primary: '#8b5cf6',
-        surface: '#1e293b',
-        sunday: '#EF4444',
-        saturday: '#3B82F6',
-        today: '#8b5cf6',
-        monthOdd: '#111827',   // Odd months (1,3,5,7,9,11) — darker
-        monthEven: '#1a2332',  // Even months (2,4,6,8,10,12) — slightly lighter
+        bg: 'var(--color-calendar-bg)',
+        cardBg: 'var(--color-calendar-month-odd)',
+        headerBg: 'var(--color-calendar-header-bg)',
+        text: 'var(--color-calendar-text)',
+        textMuted: 'var(--color-calendar-text-muted)',
+        textFaded: 'var(--color-calendar-text-faded)',
+        border: 'var(--color-calendar-border)',
+        borderStrong: 'var(--color-calendar-border-strong)',
+        buttonBg: 'var(--color-calendar-button-bg)',
+        buttonActiveBg: 'var(--color-calendar-border-strong)',
+        primary: 'var(--color-primary)',
+        surface: 'var(--color-calendar-surface)',
+        sunday: 'var(--color-calendar-sunday)',
+        saturday: 'var(--color-calendar-saturday)',
+        today: 'var(--color-primary)',
+        monthOdd: 'var(--color-calendar-month-odd)',
+        monthEven: 'var(--color-calendar-month-even)',
+        watermark: 'var(--color-calendar-watermark)',
+        taskBarText: 'var(--color-task-bar-text)',
     };
 
     const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -770,7 +772,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                 >
                     {isStart && (
                         <span style={{
-                            fontSize: '20px', fontWeight: 600, color: '#1e293b',
+                            fontSize: '20px', fontWeight: 600, color: theme.taskBarText,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                             {task.starred && <span style={{ marginRight: '2px' }}>{'\u2605'}</span>}
@@ -874,7 +876,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                         onClick={() => onTaskClick?.(task)}
                                         style={{
                                             fontSize: '16px', padding: '4px 12px',
-                                            backgroundColor: taskColor, color: '#000000',
+                                            backgroundColor: taskColor, color: theme.taskBarText,
                                             borderRadius: '14px', whiteSpace: 'nowrap',
                                             cursor: 'grab', fontWeight: 700, flexShrink: 0,
                                             opacity: isDraggingThis ? 0.5 : 1,
@@ -1170,7 +1172,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onTaskClick, 
                                                     justifyContent: 'center',
                                                     fontSize: `${fontSize}px`,
                                                     fontWeight: 900,
-                                                    color: 'rgba(255, 255, 255, 0.04)',
+                                                    color: theme.watermark,
                                                     lineHeight: 1,
                                                     whiteSpace: 'nowrap',
                                                 }}>

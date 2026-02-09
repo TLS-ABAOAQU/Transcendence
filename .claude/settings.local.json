@@ -3,7 +3,19 @@
     "allow": [
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(git -C /Users/ju/.gemini/antigravity/scratch/personal-project-manager log --all --full-history -p -- \"*useLocalStorageWithHistory*\")",
+      "Bash(git -C /Users/ju/.gemini/antigravity/scratch/personal-project-manager show HEAD~1:src/hooks/useLocalStorageWithHistory.ts)",
+      "Bash(git pull:*)",
+      "mcp__Desktop_Commander__read_file",
+      "mcp__Desktop_Commander__list_directory"
     ]
   }
 }

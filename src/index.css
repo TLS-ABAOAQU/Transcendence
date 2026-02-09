@@ -1,30 +1,1053 @@
-:root {
-  /* Premium Color Palette */
+/* ============================================
+   THEME SYSTEM - 6 Themes
+   ============================================ */
+
+/* Default theme (Midnight Purple) */
+:root,
+[data-theme="midnight-purple"] {
+  /* Colors */
   --color-bg: #0f172a;
   --color-surface: #1e293b;
   --color-surface-hover: #334155;
+  --color-surface-elevated: #283548;
   --color-primary: #8b5cf6;
-  /* Violet */
   --color-primary-hover: #7c3aed;
-  --color-text-main: rgba(248, 250, 252, 0.85);
+  --color-primary-muted: rgba(139, 92, 246, 0.15);
+  --color-text-main: rgba(248, 250, 252, 0.87);
   --color-text-muted: #94a3b8;
+  --color-text-inverse: #0f172a;
   --color-border: #334155;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-strong: #4B5563;
+  --color-overlay: rgba(0, 0, 0, 0.6);
 
+  /* Status colors */
   --color-priority-low: #86efac;
   --color-priority-medium: #facc15;
   --color-priority-high: #f87171;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* Task status colors */
+  --color-status-todo: #9ca3af;
+  --color-status-todo-bg: rgba(156, 163, 175, 0.2);
+  --color-status-standby: #fbbf24;
+  --color-status-standby-bg: rgba(251, 191, 36, 0.2);
+  --color-status-progress: #3b82f6;
+  --color-status-progress-bg: rgba(59, 130, 246, 0.2);
+  --color-status-done: #22c55e;
+  --color-status-done-bg: rgba(34, 197, 94, 0.2);
 
+  /* Border radius - Sharp/Professional */
+  --radius-xs: 0.25rem;
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
   --radius-full: 9999px;
 
+  /* Shadows - Deep, layered */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.3);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.15);
+
+  /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-heading-weight: 700;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.05em;
+
+  /* Animation - Smooth, professional */
+  --transition-fast: 100ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Component specific */
+  --card-padding: 1.25rem;
+  --card-border-width: 1px;
+  --button-padding-x: 0.75rem;
+  --button-padding-y: 0.5rem;
+  --input-padding: 0.5rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -3px;
+
+  /* Task card visibility (enhanced for dark theme) */
+  --task-card-border-width: 2px;
+  --task-card-border-color: #4B5563;
+  --task-card-shadow: none;
+  --task-card-hover-border-color: #8b5cf6;
+  --task-card-hover-shadow: none;
+  --color-card-date-text: rgba(248, 250, 252, 0.9);
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #1F2937;
+  --color-calendar-header-bg: #1F2937;
+  --color-calendar-surface: #1e293b;
+  --color-calendar-month-odd: #111827;
+  --color-calendar-month-even: #1a2332;
+  --color-calendar-today-bg: rgba(139, 92, 246, 0.2);
+  --color-calendar-sunday: #EF4444;
+  --color-calendar-saturday: #3B82F6;
+  --color-calendar-text: rgba(249, 250, 251, 0.85);
+  --color-calendar-text-muted: #9CA3AF;
+  --color-calendar-text-faded: #6B7280;
+  --color-calendar-border: #374151;
+  --color-calendar-border-strong: #4B5563;
+  --color-calendar-button-bg: #374151;
+  --color-calendar-watermark: rgba(255, 255, 255, 0.04);
+  --color-task-bar-text: #1e293b;
 }
+
+/* ============================================
+   Misty Harbor - Cool, muted slate blue
+   ============================================ */
+[data-theme="ocean-breeze"] {
+  --color-bg: #7ca8c4;
+  --color-surface: #a3c4d9;
+  --color-surface-hover: #5d8aa8;
+  --color-surface-elevated: #c5dbe8;
+  --color-primary: #3d7a9e;
+  --color-primary-hover: #2d6080;
+  --color-primary-muted: rgba(61, 122, 158, 0.15);
+  --color-text-main: rgba(30, 60, 80, 0.95);
+  --color-text-muted: #3d5a6f;
+  --color-text-inverse: #e8f2f7;
+  --color-border: #7ca8c4;
+  --color-border-subtle: rgba(90, 140, 170, 0.2);
+  --color-border-strong: #5d8aa8;
+  --color-overlay: rgba(12, 74, 110, 0.5);
+
+  --color-priority-low: #15803d;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+
+  --color-status-todo: #64748b;
+  --color-status-todo-bg: rgba(100, 116, 139, 0.15);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.15);
+  --color-status-progress: #0284c7;
+  --color-status-progress-bg: rgba(2, 132, 199, 0.15);
+  --color-status-done: #15803d;
+  --color-status-done-bg: rgba(21, 128, 61, 0.15);
+
+  /* Sharp radius */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /* Light mode shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 50, 100, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 50, 100, 0.12);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 50, 100, 0.15);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 50, 100, 0.2);
+  --shadow-glow: 0 0 25px rgba(14, 165, 233, 0.2);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-wide: 0.1em;
+
+  /* Snappy animation */
+  --transition-fast: 75ms;
+  --transition-base: 150ms;
+  --transition-slow: 250ms;
+  --transition-easing: cubic-bezier(0.2, 0, 0.4, 1);
+  --animation-bounce: cubic-bezier(0.2, 0, 0.4, 1);
+
+  --card-padding: 1rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -2px;
+  --color-card-date-text: rgba(30, 60, 80, 0.85);
+
+  /* Task card visibility */
+  --task-card-border-width: 1px;
+  --task-card-border-color: #5d8aa8;
+  --task-card-hover-border-color: #3d7a9e;
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #a3c4d9;
+  --color-calendar-header-bg: #a3c4d9;
+  --color-calendar-surface: #a3c4d9;
+  --color-calendar-month-odd: #a3c4d9;
+  --color-calendar-month-even: #7ca8c4;
+  --color-calendar-today-bg: rgba(61, 122, 158, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(30, 60, 80, 0.9);
+  --color-calendar-text-muted: #3d5a6f;
+  --color-calendar-text-faded: #5a7585;
+  --color-calendar-border: #c5dbe8;
+  --color-calendar-border-strong: #a3c4d9;
+  --color-calendar-button-bg: #d8e8f0;
+  --color-calendar-watermark: rgba(0, 50, 100, 0.04);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Mint Meadow - Soft sage green, calming
+   ============================================ */
+[data-theme="forest-night"] {
+  --color-bg: #9cc4a8;
+  --color-surface: #b8d4c2;
+  --color-surface-hover: #7aab8a;
+  --color-surface-elevated: #d0e4d6;
+  --color-primary: #4a9060;
+  --color-primary-hover: #3d7850;
+  --color-primary-muted: rgba(74, 144, 96, 0.1);
+  --color-text-main: rgba(35, 65, 45, 0.95);
+  --color-text-muted: #3d6048;
+  --color-text-inverse: #eef5f0;
+  --color-border: #9cc4a8;
+  --color-border-subtle: rgba(120, 170, 135, 0.2);
+  --color-border-strong: #7aab8a;
+  --color-overlay: rgba(20, 83, 45, 0.35);
+
+  --color-priority-low: #15803d;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+
+  --color-status-todo: #64748b;
+  --color-status-todo-bg: rgba(100, 116, 139, 0.15);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.15);
+  --color-status-progress: #16a34a;
+  --color-status-progress-bg: rgba(22, 163, 74, 0.15);
+  --color-status-done: #15803d;
+  --color-status-done-bg: rgba(21, 128, 61, 0.15);
+
+  /* Soft, organic radius */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Light mode soft shadows */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 4px rgba(0, 50, 30, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 50, 30, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 50, 30, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 50, 30, 0.15);
+  --shadow-glow: 0 0 30px rgba(74, 222, 128, 0.2);
+  --shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: 0;
+  --letter-spacing-normal: 0.01em;
+  --letter-spacing-wide: 0.04em;
+
+  /* Gentle, flowing animation */
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 400ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --card-padding: 1.5rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -4px;
+  --color-card-date-text: rgba(35, 65, 45, 0.85);
+
+  /* Task card visibility */
+  --task-card-border-width: 1px;
+  --task-card-border-color: #7aab8a;
+  --task-card-hover-border-color: #4a9060;
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #b8d4c2;
+  --color-calendar-header-bg: #b8d4c2;
+  --color-calendar-surface: #b8d4c2;
+  --color-calendar-month-odd: #b8d4c2;
+  --color-calendar-month-even: #9cc4a8;
+  --color-calendar-today-bg: rgba(74, 144, 96, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(35, 65, 45, 0.9);
+  --color-calendar-text-muted: #3d6048;
+  --color-calendar-text-faded: #506858;
+  --color-calendar-border: #d0e4d6;
+  --color-calendar-border-strong: #b8d4c2;
+  --color-calendar-button-bg: #dde9e0;
+  --color-calendar-watermark: rgba(0, 50, 30, 0.04);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Rose Quartz - Dusty rose, elegant
+   ============================================ */
+[data-theme="sakura"] {
+  --color-bg: #d4b0c0;
+  --color-surface: #e2c8d4;
+  --color-surface-hover: #c297ab;
+  --color-surface-elevated: #eddee5;
+  --color-primary: #a85a78;
+  --color-primary-hover: #8e4a65;
+  --color-primary-muted: rgba(168, 90, 120, 0.1);
+  --color-text-main: rgba(90, 50, 65, 0.95);
+  --color-text-muted: #7a5060;
+  --color-text-inverse: #f5eef1;
+  --color-border: #d4b0c0;
+  --color-border-subtle: rgba(195, 150, 170, 0.2);
+  --color-border-strong: #c297ab;
+  --color-overlay: rgba(131, 24, 67, 0.35);
+
+  --color-priority-low: #15803d;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+
+  --color-status-todo: #6b7280;
+  --color-status-todo-bg: rgba(107, 114, 128, 0.15);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.15);
+  --color-status-progress: #db2777;
+  --color-status-progress-bg: rgba(219, 39, 119, 0.15);
+  --color-status-done: #15803d;
+  --color-status-done-bg: rgba(21, 128, 61, 0.15);
+
+  /* Very rounded, playful */
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 2rem;
+
+  /* Soft, warm glow shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(100, 20, 50, 0.08);
+  --shadow-md: 0 4px 16px rgba(100, 20, 50, 0.1);
+  --shadow-lg: 0 8px 32px rgba(100, 20, 50, 0.12);
+  --shadow-xl: 0 16px 64px rgba(100, 20, 50, 0.15);
+  --shadow-glow: 0 0 40px rgba(244, 114, 182, 0.25);
+  --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: 0;
+  --letter-spacing-normal: 0.015em;
+  --letter-spacing-wide: 0.03em;
+
+  /* Bouncy, playful animation */
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 350ms;
+  --transition-easing: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --animation-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --card-padding: 1.375rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -5px;
+  --color-card-date-text: rgba(90, 50, 65, 0.85);
+
+  /* Task card visibility */
+  --task-card-border-width: 1px;
+  --task-card-border-color: #c297ab;
+  --task-card-hover-border-color: #a85a78;
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #e2c8d4;
+  --color-calendar-header-bg: #e2c8d4;
+  --color-calendar-surface: #e2c8d4;
+  --color-calendar-month-odd: #e2c8d4;
+  --color-calendar-month-even: #d4b0c0;
+  --color-calendar-today-bg: rgba(168, 90, 120, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(90, 50, 65, 0.9);
+  --color-calendar-text-muted: #7a5060;
+  --color-calendar-text-faded: #8a6575;
+  --color-calendar-border: #eddee5;
+  --color-calendar-border-strong: #e2c8d4;
+  --color-calendar-button-bg: #f2e5eb;
+  --color-calendar-watermark: rgba(100, 20, 50, 0.04);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Silver Mist - Cool slate gray, minimal
+   ============================================ */
+[data-theme="light"] {
+  --color-bg: #cbd5e1;
+  --color-surface: #e2e8f0;
+  --color-surface-hover: #94a3b8;
+  --color-surface-elevated: #f1f5f9;
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-muted: rgba(99, 102, 241, 0.08);
+  --color-text-main: rgba(15, 23, 42, 0.9);
+  --color-text-muted: #64748b;
+  --color-text-inverse: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-subtle: rgba(0, 0, 0, 0.04);
+  --color-border-strong: #cbd5e1;
+  --color-overlay: rgba(15, 23, 42, 0.4);
+
+  /* Accessible contrast ratios for light bg */
+  --color-priority-low: #16a34a;
+  --color-priority-medium: #ca8a04;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #b91c1c;
+
+  /* Accessible status colors for light mode */
+  --color-status-todo: #6b7280;
+  --color-status-todo-bg: rgba(107, 114, 128, 0.12);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.12);
+  --color-status-progress: #2563eb;
+  --color-status-progress-bg: rgba(37, 99, 235, 0.12);
+  --color-status-done: #16a34a;
+  --color-status-done-bg: rgba(22, 163, 74, 0.12);
+
+  /* Clean, minimal radius */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Subtle, light mode shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+
+  --font-weight-bold: 700;
+  --font-heading-weight: 700;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-wide: 0.025em;
+
+  /* Crisp animation */
+  --transition-fast: 100ms;
+  --transition-base: 175ms;
+  --transition-slow: 275ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --card-padding: 1.25rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -2px;
+
+  /* Task card visibility (enhanced for light theme) */
+  --task-card-border-width: 2px;
+  --task-card-border-color: #cbd5e1;
+  --task-card-shadow: none;
+  --task-card-hover-border-color: #6366f1;
+  --task-card-hover-shadow: none;
+  --color-card-date-text: rgba(15, 23, 42, 0.8);
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #e2e8f0;
+  --color-calendar-header-bg: #e2e8f0;
+  --color-calendar-surface: #e2e8f0;
+  --color-calendar-month-odd: #e2e8f0;
+  --color-calendar-month-even: #cbd5e1;
+  --color-calendar-today-bg: rgba(99, 102, 241, 0.12);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(15, 23, 42, 0.9);
+  --color-calendar-text-muted: #64748b;
+  --color-calendar-text-faded: #94a3b8;
+  --color-calendar-border: #e2e8f0;
+  --color-calendar-border-strong: #cbd5e1;
+  --color-calendar-button-bg: #f1f5f9;
+  --color-calendar-watermark: rgba(0, 0, 0, 0.03);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Sandy Beach - Warm sand, relaxed
+   ============================================ */
+[data-theme="ember"] {
+  --color-bg: #d4b090;
+  --color-surface: #e0c8b0;
+  --color-surface-hover: #c49870;
+  --color-surface-elevated: #ebe0d4;
+  --color-primary: #b87040;
+  --color-primary-hover: #9a5c35;
+  --color-primary-muted: rgba(184, 112, 64, 0.1);
+  --color-text-main: rgba(90, 55, 35, 0.95);
+  --color-text-muted: #7a5035;
+  --color-text-inverse: #f5f0eb;
+  --color-border: #d4b090;
+  --color-border-subtle: rgba(195, 150, 110, 0.2);
+  --color-border-strong: #c49870;
+  --color-overlay: rgba(124, 45, 18, 0.35);
+
+  --color-priority-low: #15803d;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+
+  --color-status-todo: #78716c;
+  --color-status-todo-bg: rgba(120, 113, 108, 0.15);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.15);
+  --color-status-progress: #ea580c;
+  --color-status-progress-bg: rgba(234, 88, 12, 0.15);
+  --color-status-done: #15803d;
+  --color-status-done-bg: rgba(21, 128, 61, 0.15);
+
+  /* Bold, confident radius */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  /* Light mode warm shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(100, 30, 10, 0.08);
+  --shadow-md: 0 4px 8px rgba(100, 30, 10, 0.1);
+  --shadow-lg: 0 8px 16px rgba(100, 30, 10, 0.12);
+  --shadow-xl: 0 16px 32px rgba(100, 30, 10, 0.15);
+  --shadow-glow: 0 0 30px rgba(249, 115, 22, 0.25);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+
+  --font-weight-medium: 600;
+  --font-weight-bold: 800;
+  --font-heading-weight: 800;
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-wide: 0.08em;
+
+  /* Fast, energetic animation */
+  --transition-fast: 75ms;
+  --transition-base: 150ms;
+  --transition-slow: 225ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+
+  --card-padding: 1.125rem;
+  --card-border-width: 2px;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -4px;
+  --color-card-date-text: rgba(90, 55, 35, 0.85);
+
+  /* Task card visibility */
+  --task-card-border-width: 1px;
+  --task-card-border-color: #c49870;
+  --task-card-hover-border-color: #b87040;
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #e0c8b0;
+  --color-calendar-header-bg: #e0c8b0;
+  --color-calendar-surface: #e0c8b0;
+  --color-calendar-month-odd: #e0c8b0;
+  --color-calendar-month-even: #d4b090;
+  --color-calendar-today-bg: rgba(184, 112, 64, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(90, 55, 35, 0.9);
+  --color-calendar-text-muted: #7a5035;
+  --color-calendar-text-faded: #8a6550;
+  --color-calendar-border: #ebe0d4;
+  --color-calendar-border-strong: #e0c8b0;
+  --color-calendar-button-bg: #f0e8e0;
+  --color-calendar-watermark: rgba(100, 30, 10, 0.04);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Sepia - Eye-friendly, warm, low blue light
+   ============================================ */
+[data-theme="sepia"] {
+  /* Warm cream/parchment backgrounds */
+  --color-bg: #f5f0e6;
+  --color-surface: #faf7f0;
+  --color-surface-hover: #e8e0d0;
+  --color-surface-elevated: #fffdf7;
+
+  /* Warm brown/amber accents */
+  --color-primary: #b58900;
+  --color-primary-hover: #9a7400;
+  --color-primary-muted: rgba(181, 137, 0, 0.12);
+
+  /* Dark sepia text for comfortable reading */
+  --color-text-main: rgba(88, 66, 37, 0.92);
+  --color-text-muted: #8b7355;
+  --color-text-inverse: #faf7f0;
+
+  /* Warm borders */
+  --color-border: #e8dcc8;
+  --color-border-subtle: rgba(139, 115, 85, 0.15);
+  --color-border-strong: #d4c4a8;
+  --color-overlay: rgba(88, 66, 37, 0.35);
+
+  /* Status colors - slightly muted for eye comfort */
+  --color-priority-low: #859900;
+  --color-priority-medium: #cb4b16;
+  --color-priority-high: #dc322f;
+  --color-success: #859900;
+  --color-warning: #cb4b16;
+  --color-error: #dc322f;
+
+  /* Task status - warm tones */
+  --color-status-todo: #93a1a1;
+  --color-status-todo-bg: rgba(147, 161, 161, 0.15);
+  --color-status-standby: #cb4b16;
+  --color-status-standby-bg: rgba(203, 75, 22, 0.12);
+  --color-status-progress: #268bd2;
+  --color-status-progress-bg: rgba(38, 139, 210, 0.12);
+  --color-status-done: #859900;
+  --color-status-done-bg: rgba(133, 153, 0, 0.12);
+
+  /* Soft, rounded corners for comfort */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Very soft shadows */
+  --shadow-xs: 0 1px 2px rgba(88, 66, 37, 0.04);
+  --shadow-sm: 0 1px 3px rgba(88, 66, 37, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(88, 66, 37, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(88, 66, 37, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(88, 66, 37, 0.12);
+  --shadow-glow: 0 0 20px rgba(181, 137, 0, 0.15);
+  --shadow-inner: inset 0 2px 4px rgba(88, 66, 37, 0.04);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-wide: 0.03em;
+
+  /* Gentle animations */
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --card-padding: 1.25rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -2px;
+  --color-card-date-text: rgba(88, 66, 37, 0.85);
+
+  /* Task card visibility */
+  --task-card-border-width: 2px;
+  --task-card-border-color: #c9b896;
+  --task-card-shadow: none;
+  --task-card-hover-border-color: #b58900;
+  --task-card-hover-shadow: none;
+
+  /* Calendar/Timeline specific */
+  --color-calendar-bg: #faf7f0;
+  --color-calendar-header-bg: #faf7f0;
+  --color-calendar-surface: #faf7f0;
+  --color-calendar-month-odd: #faf7f0;
+  --color-calendar-month-even: #f5f0e6;
+  --color-calendar-today-bg: rgba(181, 137, 0, 0.15);
+  --color-calendar-sunday: #dc322f;
+  --color-calendar-saturday: #268bd2;
+  --color-calendar-text: rgba(88, 66, 37, 0.9);
+  --color-calendar-text-muted: #8b7355;
+  --color-calendar-text-faded: #a69070;
+  --color-calendar-border: #e8dcc8;
+  --color-calendar-border-strong: #d4c4a8;
+  --color-calendar-button-bg: #fffdf7;
+  --color-calendar-watermark: rgba(88, 66, 37, 0.03);
+  --color-task-bar-text: #584225;
+}
+
+/* ============================================
+   Moss Garden - Deep green gradient, natural
+   ============================================ */
+[data-theme="moss-garden"] {
+  /* Green gradient from light to dark */
+  --color-bg: #6b8f71;
+  --color-surface: #8fb996;
+  --color-surface-hover: #5a7d5f;
+  --color-surface-elevated: #b8d4bb;
+  --color-primary: #2d5a3d;
+  --color-primary-hover: #1e4530;
+  --color-primary-muted: rgba(45, 90, 61, 0.15);
+  --color-text-main: rgba(30, 50, 35, 0.95);
+  --color-text-muted: #3d5a42;
+  --color-text-inverse: #e8f0ea;
+  --color-border: #7a9f80;
+  --color-border-subtle: rgba(100, 140, 105, 0.2);
+  --color-border-strong: #5a7d5f;
+  --color-overlay: rgba(30, 50, 35, 0.4);
+
+  --color-priority-low: #15803d;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #dc2626;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+
+  --color-status-todo: #6b7280;
+  --color-status-todo-bg: rgba(107, 114, 128, 0.15);
+  --color-status-standby: #b45309;
+  --color-status-standby-bg: rgba(180, 83, 9, 0.15);
+  --color-status-progress: #047857;
+  --color-status-progress-bg: rgba(4, 120, 87, 0.15);
+  --color-status-done: #15803d;
+  --color-status-done-bg: rgba(21, 128, 61, 0.15);
+
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --shadow-xs: 0 1px 2px rgba(30, 50, 35, 0.06);
+  --shadow-sm: 0 2px 4px rgba(30, 50, 35, 0.08);
+  --shadow-md: 0 4px 8px rgba(30, 50, 35, 0.1);
+  --shadow-lg: 0 8px 16px rgba(30, 50, 35, 0.12);
+  --shadow-xl: 0 16px 32px rgba(30, 50, 35, 0.15);
+  --shadow-glow: 0 0 25px rgba(45, 90, 61, 0.2);
+  --shadow-inner: inset 0 2px 4px rgba(30, 50, 35, 0.06);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: -0.01em;
+  --letter-spacing-wide: 0.04em;
+
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 350ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.34, 1.2, 0.64, 1);
+
+  --card-padding: 1.25rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -3px;
+  --color-card-date-text: rgba(30, 50, 35, 0.85);
+
+  --task-card-border-width: 1px;
+  --task-card-border-color: #5a7d5f;
+  --task-card-hover-border-color: #2d5a3d;
+
+  --color-calendar-bg: #8fb996;
+  --color-calendar-header-bg: #8fb996;
+  --color-calendar-surface: #8fb996;
+  --color-calendar-month-odd: #8fb996;
+  --color-calendar-month-even: #6b8f71;
+  --color-calendar-today-bg: rgba(45, 90, 61, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(30, 50, 35, 0.9);
+  --color-calendar-text-muted: #3d5a42;
+  --color-calendar-text-faded: #4d6a52;
+  --color-calendar-border: #b8d4bb;
+  --color-calendar-border-strong: #8fb996;
+  --color-calendar-button-bg: #c8e0cb;
+  --color-calendar-watermark: rgba(30, 50, 35, 0.04);
+  --color-task-bar-text: #1e3223;
+}
+
+/* ============================================
+   Candy Pop - Colorful, playful
+   ============================================ */
+[data-theme="candy-pop"] {
+  /* Teal top, red-pink middle, purple, blue bottom */
+  --color-bg: #5eb8a8;
+  --color-surface: #d4878a;
+  --color-surface-hover: #b9a0c4;
+  --color-surface-elevated: #8bb0d4;
+  --color-primary: #c45a6a;
+  --color-primary-hover: #a84858;
+  --color-primary-muted: rgba(196, 90, 106, 0.15);
+  --color-text-main: rgba(50, 40, 50, 0.95);
+  --color-text-muted: #5a4a5a;
+  --color-text-inverse: #f0f5f8;
+  --color-border: #c0a0b0;
+  --color-border-subtle: rgba(180, 140, 160, 0.2);
+  --color-border-strong: #a88098;
+  --color-overlay: rgba(50, 40, 50, 0.4);
+
+  --color-priority-low: #16a34a;
+  --color-priority-medium: #ca8a04;
+  --color-priority-high: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-error: #dc2626;
+
+  --color-status-todo: #6b7280;
+  --color-status-todo-bg: rgba(107, 114, 128, 0.15);
+  --color-status-standby: #ca8a04;
+  --color-status-standby-bg: rgba(202, 138, 4, 0.15);
+  --color-status-progress: #3b82f6;
+  --color-status-progress-bg: rgba(59, 130, 246, 0.15);
+  --color-status-done: #16a34a;
+  --color-status-done-bg: rgba(22, 163, 74, 0.15);
+
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+
+  --shadow-xs: 0 1px 2px rgba(50, 40, 50, 0.05);
+  --shadow-sm: 0 2px 6px rgba(196, 90, 106, 0.1);
+  --shadow-md: 0 4px 12px rgba(196, 90, 106, 0.12);
+  --shadow-lg: 0 8px 24px rgba(196, 90, 106, 0.15);
+  --shadow-xl: 0 16px 48px rgba(196, 90, 106, 0.18);
+  --shadow-glow: 0 0 30px rgba(196, 90, 106, 0.25);
+  --shadow-inner: inset 0 2px 4px rgba(50, 40, 50, 0.05);
+
+  --font-weight-bold: 700;
+  --font-heading-weight: 700;
+  --letter-spacing-tight: 0;
+  --letter-spacing-wide: 0.02em;
+
+  --transition-fast: 100ms;
+  --transition-base: 180ms;
+  --transition-slow: 300ms;
+  --transition-easing: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --animation-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --card-padding: 1.375rem;
+  --modal-backdrop-blur: 3px;
+  --task-card-hover-lift: -5px;
+  --color-card-date-text: rgba(50, 40, 50, 0.85);
+
+  --task-card-border-width: 2px;
+  --task-card-border-color: #a88098;
+  --task-card-hover-border-color: #c45a6a;
+
+  --color-calendar-bg: #d4878a;
+  --color-calendar-header-bg: #5eb8a8;
+  --color-calendar-surface: #d4878a;
+  --color-calendar-month-odd: #b9a0c4;
+  --color-calendar-month-even: #8bb0d4;
+  --color-calendar-today-bg: rgba(196, 90, 106, 0.2);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(50, 40, 50, 0.9);
+  --color-calendar-text-muted: #5a4a5a;
+  --color-calendar-text-faded: #6a5a6a;
+  --color-calendar-border: #e0c8d0;
+  --color-calendar-border-strong: #c0a0b0;
+  --color-calendar-button-bg: #e8d8e0;
+  --color-calendar-watermark: rgba(50, 40, 50, 0.04);
+  --color-task-bar-text: #322832;
+}
+
+/* ============================================
+   Slate Storm - Blue-gray monochrome, modern
+   ============================================ */
+[data-theme="slate-storm"] {
+  /* Cool slate from dark to light */
+  --color-bg: #6b8a97;
+  --color-surface: #4a5c64;
+  --color-surface-hover: #5a6c74;
+  --color-surface-elevated: #8fa8b4;
+  --color-primary: #3d5a6a;
+  --color-primary-hover: #2d4a58;
+  --color-primary-muted: rgba(56, 189, 248, 0.35);
+  --color-text-main: rgba(240, 245, 248, 0.95);
+  --color-text-muted: #b8c8d0;
+  --color-text-inverse: #2d3a40;
+  --color-border: #5a6c74;
+  --color-border-subtle: rgba(140, 160, 170, 0.2);
+  --color-border-strong: #3d5a6a;
+  --color-overlay: rgba(30, 40, 45, 0.5);
+
+  --color-priority-low: #4ade80;
+  --color-priority-medium: #fbbf24;
+  --color-priority-high: #f87171;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+
+  --color-status-todo: #94a3b8;
+  --color-status-todo-bg: rgba(148, 163, 184, 0.2);
+  --color-status-standby: #fbbf24;
+  --color-status-standby-bg: rgba(251, 191, 36, 0.2);
+  --color-status-progress: #38bdf8;
+  --color-status-progress-bg: rgba(56, 189, 248, 0.2);
+  --color-status-done: #4ade80;
+  --color-status-done-bg: rgba(74, 222, 128, 0.2);
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+
+  --shadow-xs: 0 1px 2px rgba(20, 30, 35, 0.15);
+  --shadow-sm: 0 2px 4px rgba(20, 30, 35, 0.2);
+  --shadow-md: 0 4px 8px rgba(20, 30, 35, 0.25);
+  --shadow-lg: 0 8px 16px rgba(20, 30, 35, 0.3);
+  --shadow-xl: 0 16px 32px rgba(20, 30, 35, 0.35);
+  --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.2);
+  --shadow-inner: inset 0 2px 4px rgba(20, 30, 35, 0.1);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-wide: 0.05em;
+
+  --transition-fast: 100ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --card-padding: 1.125rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -2px;
+  --color-card-date-text: rgba(240, 245, 248, 0.85);
+
+  --task-card-border-width: 1px;
+  --task-card-border-color: #3d5a6a;
+  --task-card-hover-border-color: #38bdf8;
+
+  --color-calendar-bg: #4a5c64;
+  --color-calendar-header-bg: #4a5c64;
+  --color-calendar-surface: #4a5c64;
+  --color-calendar-month-odd: #5a6c74;
+  --color-calendar-month-even: #4a5c64;
+  --color-calendar-today-bg: rgba(56, 189, 248, 0.2);
+  --color-calendar-sunday: #f87171;
+  --color-calendar-saturday: #38bdf8;
+  --color-calendar-text: rgba(240, 245, 248, 0.9);
+  --color-calendar-text-muted: #b8c8d0;
+  --color-calendar-text-faded: #8a9aa4;
+  --color-calendar-border: #5a6c74;
+  --color-calendar-border-strong: #3d5a6a;
+  --color-calendar-button-bg: #5a6c74;
+  --color-calendar-watermark: rgba(255, 255, 255, 0.04);
+  --color-task-bar-text: #1e293b;
+}
+
+/* ============================================
+   Dusty Rose - Pink to cream, feminine
+   ============================================ */
+[data-theme="dusty-rose"] {
+  /* Pink top, blush middle, cream-yellow bottom */
+  --color-bg: #d4a0a8;
+  --color-surface: #e8c8c8;
+  --color-surface-hover: #c88898;
+  --color-surface-elevated: #f0e0d8;
+  --color-primary: #b87080;
+  --color-primary-hover: #a06070;
+  --color-primary-muted: rgba(184, 112, 128, 0.12);
+  --color-text-main: rgba(80, 50, 55, 0.95);
+  --color-text-muted: #8a6065;
+  --color-text-inverse: #f8f2f0;
+  --color-border: #d0b0b8;
+  --color-border-subtle: rgba(200, 150, 160, 0.2);
+  --color-border-strong: #c88898;
+  --color-overlay: rgba(80, 50, 55, 0.35);
+
+  --color-priority-low: #16a34a;
+  --color-priority-medium: #ca8a04;
+  --color-priority-high: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-error: #dc2626;
+
+  --color-status-todo: #78716c;
+  --color-status-todo-bg: rgba(120, 113, 108, 0.15);
+  --color-status-standby: #ca8a04;
+  --color-status-standby-bg: rgba(202, 138, 4, 0.15);
+  --color-status-progress: #db2777;
+  --color-status-progress-bg: rgba(219, 39, 119, 0.15);
+  --color-status-done: #16a34a;
+  --color-status-done-bg: rgba(22, 163, 74, 0.15);
+
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --shadow-xs: 0 1px 2px rgba(80, 50, 55, 0.04);
+  --shadow-sm: 0 2px 6px rgba(184, 112, 128, 0.08);
+  --shadow-md: 0 4px 12px rgba(184, 112, 128, 0.1);
+  --shadow-lg: 0 8px 24px rgba(184, 112, 128, 0.12);
+  --shadow-xl: 0 16px 48px rgba(184, 112, 128, 0.15);
+  --shadow-glow: 0 0 30px rgba(184, 112, 128, 0.2);
+  --shadow-inner: inset 0 2px 4px rgba(80, 50, 55, 0.04);
+
+  --font-weight-bold: 600;
+  --font-heading-weight: 600;
+  --letter-spacing-tight: 0;
+  --letter-spacing-wide: 0.03em;
+
+  --transition-fast: 120ms;
+  --transition-base: 200ms;
+  --transition-slow: 350ms;
+  --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-bounce: cubic-bezier(0.34, 1.2, 0.64, 1);
+
+  --card-padding: 1.25rem;
+  --modal-backdrop-blur: 2px;
+  --task-card-hover-lift: -4px;
+  --color-card-date-text: rgba(80, 50, 55, 0.85);
+
+  --task-card-border-width: 1px;
+  --task-card-border-color: #c88898;
+  --task-card-hover-border-color: #b87080;
+
+  --color-calendar-bg: #e8c8c8;
+  --color-calendar-header-bg: #e8c8c8;
+  --color-calendar-surface: #e8c8c8;
+  --color-calendar-month-odd: #e8c8c8;
+  --color-calendar-month-even: #d4a0a8;
+  --color-calendar-today-bg: rgba(184, 112, 128, 0.15);
+  --color-calendar-sunday: #dc2626;
+  --color-calendar-saturday: #2563eb;
+  --color-calendar-text: rgba(80, 50, 55, 0.9);
+  --color-calendar-text-muted: #8a6065;
+  --color-calendar-text-faded: #9a7075;
+  --color-calendar-border: #f0e0d8;
+  --color-calendar-border-strong: #e8c8c8;
+  --color-calendar-button-bg: #f5e8e5;
+  --color-calendar-watermark: rgba(80, 50, 55, 0.04);
+  --color-task-bar-text: #503237;
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-theme] {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+    --transition-slow: 0ms;
+    --task-card-hover-lift: 0;
+  }
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 
 * {
   box-sizing: border-box;
@@ -34,7 +1057,7 @@
 
 html, body {
   height: 100%;
-  overflow: hidden; /* ページ全体のスクロール禁止 */
+  overflow: hidden;
 }
 
 body {
@@ -43,6 +1066,8 @@ body {
   color: var(--color-text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color var(--transition-slow) var(--transition-easing),
+              color var(--transition-slow) var(--transition-easing);
 }
 
 button {
@@ -53,54 +1078,27 @@ button {
   font-family: inherit;
 }
 
-/* Utilities */
+/* ============================================
+   UTILITIES
+   ============================================ */
+
 .container {
   width: 100%;
   margin: 0 auto;
   padding: 1.5rem 2rem;
 }
 
-.flex {
-  display: flex;
-}
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
 
-.flex-col {
-  flex-direction: column;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.gap-2 {
-  gap: 0.5rem;
-}
-
-.gap-4 {
-  gap: 1rem;
-}
-
-.text-sm {
-  font-size: 0.875rem;
-}
-
-.text-lg {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.text-xl {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.text-muted {
-  color: var(--color-text-muted);
-}
+.text-sm { font-size: 0.875rem; }
+.text-lg { font-size: 1.125rem; font-weight: var(--font-weight-medium); }
+.text-xl { font-size: 1.25rem; font-weight: var(--font-weight-bold); }
+.text-muted { color: var(--color-text-muted); }
 
 .truncate {
   overflow: hidden;
@@ -108,7 +1106,7 @@ button {
   text-overflow: ellipsis;
 }
 
-/* Blue links that stay blue when visited */
+/* Blue links */
 .text-blue-400,
 .text-blue-400:visited,
 .text-blue-400:hover,
@@ -116,72 +1114,85 @@ button {
   color: #60a5fa;
 }
 
+/* Light theme link adjustment */
+[data-theme="light"] .text-blue-400,
+[data-theme="light"] .text-blue-400:visited,
+[data-theme="light"] .text-blue-400:hover,
+[data-theme="light"] .text-blue-400:active {
+  color: #2563eb;
+}
+
 .btn {
-  padding: 0.25rem 0.5rem;
+  padding: var(--button-padding-y) var(--button-padding-x);
   border-radius: var(--radius-md);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   font-size: 0.75rem;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base) var(--transition-easing);
 }
 
 .btn-primary {
   background-color: var(--color-primary);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text-inverse);
 }
 
 .btn-primary:hover {
   background-color: var(--color-primary-hover);
 }
 
-.card {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-md);
+/* Light theme button text */
+[data-theme="light"] .btn-primary {
+  color: #ffffff;
 }
 
-/* Tailwind-equivalent utility classes */
+.card {
+  background-color: var(--color-surface);
+  border: var(--card-border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base) var(--transition-easing);
+}
 
-/* Font weight */
-.font-medium { font-weight: 500; }
-.font-bold { font-weight: 700; }
+/* Tailwind-equivalent utilities */
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-bold { font-weight: var(--font-weight-bold); }
 .font-mono { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; }
 
-/* Font size */
 .text-xs { font-size: 0.75rem; line-height: 1rem; }
 
-/* Colors */
-.text-red-500 { color: #ef4444; }
-.text-yellow-400 { color: #facc15; }
+.text-red-500 { color: var(--color-error); }
+.text-yellow-400 { color: var(--color-warning); }
 .text-slate-700 { color: #334155; }
 .text-slate-900 { color: #0f172a; }
 
-/* Display */
-.block { display: block; }
+/* Light theme text adjustments */
+[data-theme="light"] .text-slate-700 { color: #334155; }
+[data-theme="light"] .text-slate-900 { color: #0f172a; }
 
-/* Text decoration */
+.block { display: block; }
 .underline { text-decoration: underline; }
 
-/* Spacing */
 .mb-1 { margin-bottom: 0.25rem; }
 .mt-1 { margin-top: 0.25rem; }
 .mr-auto { margin-right: auto; }
 .gap-1 { gap: 0.25rem; }
 
-/* Layout */
 .resize-none { resize: none; }
 .opacity-80 { opacity: 0.8; }
-.transition-all { transition: all 0.2s ease; }
+.transition-all { transition: all var(--transition-base) var(--transition-easing); }
 
-/* Background with opacity */
 .bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
 
-/* Hover states */
-.hover\:text-white:hover { color: rgba(255, 255, 255, 0.85); }
+/* Light theme bg adjustment */
+[data-theme="light"] .bg-white\/5 { background-color: rgba(0, 0, 0, 0.03); }
+
+.hover\:text-white:hover { color: var(--color-text-main); }
 .hover\:underline:hover { text-decoration: underline; }
 .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1); }
 .hover\:bg-white\/50:hover { background-color: rgba(255, 255, 255, 0.5); }
 
-/* Group utility (parent hover detection) */
+/* Light theme hover adjustments */
+[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.05); }
+[data-theme="light"] .hover\:bg-white\/50:hover { background-color: rgba(0, 0, 0, 0.1); }
+
 .group:hover .group-hover\:visible { visibility: visible; }

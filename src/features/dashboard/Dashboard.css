@@ -14,20 +14,20 @@
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--color-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1rem;
     z-index: 50;
-    backdrop-filter: blur(4px);
-    animation: fadeIn 0.2s ease-out;
+    backdrop-filter: blur(var(--modal-backdrop-blur));
+    animation: fadeIn var(--transition-base) var(--transition-easing);
 }
 
 .modal-content {
     width: 100%;
     max-width: 28rem;
-    animation: zoomIn 0.2s ease-out;
+    animation: zoomIn var(--transition-base) var(--transition-easing);
 }
 
 .form-group {
@@ -47,8 +47,9 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     padding: 0.5rem;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-main);
     outline: none;
+    transition: border-color var(--transition-fast) var(--transition-easing);
 }
 
 .form-input:focus {
@@ -64,9 +65,9 @@
 .theme-btn {
     width: 1.75rem;
     height: 1.75rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     border: 2px solid transparent;
-    transition: all 0.2s;
+    transition: all var(--transition-base) var(--transition-easing);
     padding: 0;
 }
 
@@ -115,13 +116,13 @@
 
 .project-card {
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: all var(--transition-base) var(--transition-easing);
     position: relative;
     overflow: hidden;
     min-height: 160px;
     min-width: 0;
     width: 100%;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -129,8 +130,8 @@
 }
 
 .project-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+    transform: translateY(var(--task-card-hover-lift));
+    box-shadow: var(--shadow-lg);
 }
 
 .project-card-inner {
@@ -210,7 +211,7 @@
     top: 0.75rem;
     right: 0.75rem;
     background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     width: 3.5rem;
     height: 3.5rem;
     display: flex;
@@ -219,7 +220,7 @@
     border: none;
     cursor: pointer;
     opacity: 0;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast) var(--transition-easing);
     z-index: 2;
 }
 

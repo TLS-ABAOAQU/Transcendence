@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useProjects } from '../../context/ProjectContext';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import { THEMES } from '../../constants';
 import type { Project } from '../../types';
 import {
@@ -100,6 +101,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
     const historyExpandedRef = useRef(historyExpanded);
     historyExpandedRef.current = historyExpanded;
 
+    // Sync state to KeyboardStore for centralized shortcut handling
+    const { setModalOpen, setPickerOpen, setHistoryExpanded: setKbHistoryExpanded, setActiveScreen } = useKeyboardStore();
+
+    useEffect(() => {
+        setActiveScreen('dashboard');
+    }, [setActiveScreen]);
+
+    useEffect(() => {
+        setModalOpen(modalMode !== null);
+    }, [modalMode, setModalOpen]);
+
+    useEffect(() => {
+        setPickerOpen(showStartDatePicker || showDeadlinePicker);
+    }, [showStartDatePicker, showDeadlinePicker, setPickerOpen]);
+
+    useEffect(() => {
+        setKbHistoryExpanded(historyExpanded);
+    }, [historyExpanded, setKbHistoryExpanded]);
+
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -113,26 +133,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
     const commandPaletteOpenRef = useRef(commandPaletteOpen);
     commandPaletteOpenRef.current = commandPaletteOpen;
 
+    // Refs for Cmd+Enter keyboard handler (to avoid stale closure)
+    const modalModeRef = useRef(modalMode);
+    const showStartDatePickerRef = useRef(showStartDatePicker);
+    const showDeadlinePickerRef = useRef(showDeadlinePicker);
+
+    modalModeRef.current = modalMode;
+    showStartDatePickerRef.current = showStartDatePicker;
+    showDeadlinePickerRef.current = showDeadlinePicker;
+
     // Global modal keyboard handler: Cmd+Enter to save, Escape to auto-save & close, Cmd+Backspace/Delete to delete
     useEffect(() => {
         if (!modalMode) return;
 
         const handleGlobalModalKeyDown = (e: KeyboardEvent) => {
+            const priority = useKeyboardStore.getState().getTopPriority();
+
             // Cmd+Enter / Ctrl+Enter / Cmd+S / Ctrl+S = Save
+            // パレット/履歴/ピッカー開なら無視
             if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
                 e.preventDefault();
                 handleSubmitRef.current();
                 return;
             }
             // Escape = auto-save and close
-            // Priority: Launcher > History > Modal, so skip if history is open
+            // パレット/履歴/ピッカーは自身で処理するのでここでは無視
             if (e.key === 'Escape') {
-                if (historyExpandedRef.current) return; // Let history panel handle ESC first
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
+                // モーダルを閉じる
                 autoSaveCloseRef.current();
                 return;
             }
             // Cmd+Backspace (Mac) or Delete (Windows) = Delete project (edit mode only)
+            // パレット/履歴/ピッカー開なら無視
             if ((e.metaKey && e.key === 'Backspace') || e.key === 'Delete') {
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
                 const active = document.activeElement;
                 const isEditable = active instanceof HTMLInputElement ||
                     active instanceof HTMLTextAreaElement ||
@@ -152,6 +188,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
         return () => window.removeEventListener('keydown', handleGlobalModalKeyDown);
     }, [modalMode]);
 
+    // ESC to close pickers (when picker is open)
+    useEffect(() => {
+        const handleEscForPicker = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority !== 'picker') return;
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (showStartDatePickerRef.current) { setShowStartDatePicker(false); return; }
+            if (showDeadlinePickerRef.current) { setShowDeadlinePicker(false); return; }
+        };
+        window.addEventListener('keydown', handleEscForPicker);
+        return () => window.removeEventListener('keydown', handleEscForPicker);
+    }, []);
 
     // Focus trap: Tab/Shift+Tab wraps within modal
     useEffect(() => {
@@ -159,6 +212,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
 
         const handleFocusTrap = (e: KeyboardEvent) => {
             if (e.key !== 'Tab') return;
+            // Priority check: パレット/履歴/ピッカー開なら無視（通常のTab動作）
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
+
             if (!modalContentRef.current) return;
 
             const focusables = Array.from(modalContentRef.current.querySelectorAll<HTMLElement>(
@@ -250,6 +307,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
             }
         };
     }, [commandRef]);
+
+    // Cmd+N to open new project modal (only when nothing is open)
+    // Uses KeyboardStore for priority check
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!((e.metaKey || e.ctrlKey) && e.key === 'n')) return;
+
+            const priority = useKeyboardStore.getState().getTopPriority();
+            // Only execute when nothing is open
+            if (priority !== 'none') return;
+
+            e.preventDefault();
+            openCreateModalRef.current();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const openEditModal = (e: React.MouseEvent, project: Project) => {
         e.stopPropagation(); // Prevent navigating to board

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, type ReactNode } from 'react';
 import type { Project, Task, Status, ViewSettings } from '../types';
 import { useProjectStore, useTemporalStore } from '../store/projectStore';
+import { useKeyboardStore } from '../store/keyboardStore';
 
 interface ProjectContextType {
     projects: Project[];
@@ -59,20 +60,31 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     }, [temporalStore]);
 
     // Keyboard shortcuts for undo/redo
+    // Priority check: ignore when palette or picker is open, modal has its own handler
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-                e.preventDefault();
-                if (e.shiftKey) {
-                    redo();
-                } else {
-                    undo();
+            const priority = useKeyboardStore.getState().getTopPriority();
+
+            // Cmd+Z / Cmd+Shift+Z / Cmd+Y
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'y')) {
+                // According to shortcut table:
+                // - palette: ignore
+                // - history: global undo/redo
+                // - picker: ignore
+                // - modal: modal handles its own (skip here)
+                // - none: global undo/redo
+                if (priority === 'palette' || priority === 'picker' || priority === 'modal') {
+                    return; // Don't handle here
                 }
-            }
-            // Also support Ctrl+Y / Cmd+Y for redo
-            if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+
                 e.preventDefault();
-                redo();
+                if (e.key === 'z' && e.shiftKey) {
+                    redo();
+                } else if (e.key === 'z' && !e.shiftKey) {
+                    undo();
+                } else if (e.key === 'y') {
+                    redo();
+                }
             }
         };
 

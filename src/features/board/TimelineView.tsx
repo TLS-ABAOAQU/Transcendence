@@ -28,9 +28,14 @@ interface TaskRowProps {
         textMuted: string;
         border: string;
         primary: string;
+        headerBg: string;
         taskBg: string;
         monthOdd: string;
         monthEven: string;
+        sunday: string;
+        saturday: string;
+        watermark: string;
+        taskBarText: string;
     };
     dayWidth: number;
     days: Date[];
@@ -87,7 +92,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
             >
                 <span
                     style={{
-                        color: '#000000',
+                        color: theme.taskBarText,
                         fontSize: '20px',
                         fontWeight: 600,
                         overflow: 'hidden',
@@ -198,7 +203,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                             <span style={{
                                 fontSize: '20px',
                                 fontWeight: 600,
-                                color: '#000000',
+                                color: theme.taskBarText,
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
@@ -239,22 +244,26 @@ const TaskRow: React.FC<TaskRowProps> = ({
 };
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, onTaskUpdate, taskColorMap, taskBoardIndexMap, initialHideDone, onHideDoneChange, initialViewRange, onViewRangeChange, commandRef }) => {
-    const [isDarkMode] = useState(true);
     const [viewRange, setViewRange] = useState<ViewRange>(initialViewRange ?? 'month');
     const [hideDone, setHideDone] = useState(initialHideDone ?? true);
 
+    // Theme colors - use CSS variables for dynamic theming
     const theme = useMemo(() => ({
-        bg: isDarkMode ? '#0f172a' : '#ffffff',
-        surface: isDarkMode ? '#1e293b' : '#f8fafc',
-        text: isDarkMode ? 'rgba(248, 250, 252, 0.85)' : 'rgba(15, 23, 42, 0.85)',
-        textMuted: isDarkMode ? '#94a3b8' : '#64748b',
-        border: isDarkMode ? '#334155' : '#e2e8f0',
-        primary: '#8b5cf6',
-        headerBg: isDarkMode ? '#1F2937' : '#f1f5f9',
-        taskBg: isDarkMode ? '#334155' : '#e2e8f0',
-        monthOdd: isDarkMode ? '#111827' : '#f8fafc',
-        monthEven: isDarkMode ? '#1a2332' : '#f1f5f9',
-    }), [isDarkMode]);
+        bg: 'var(--color-calendar-bg)',
+        surface: 'var(--color-calendar-surface)',
+        text: 'var(--color-calendar-text)',
+        textMuted: 'var(--color-calendar-text-muted)',
+        border: 'var(--color-calendar-border)',
+        primary: 'var(--color-primary)',
+        headerBg: 'var(--color-calendar-header-bg)',
+        taskBg: 'var(--color-calendar-button-bg)',
+        monthOdd: 'var(--color-calendar-month-odd)',
+        monthEven: 'var(--color-calendar-month-even)',
+        sunday: 'var(--color-calendar-sunday)',
+        saturday: 'var(--color-calendar-saturday)',
+        watermark: 'var(--color-calendar-watermark)',
+        taskBarText: 'var(--color-task-bar-text)',
+    }), []);
 
     // Fixed date range (±12 months from today), independent of task data
     const dateRange = useMemo(() => {
@@ -895,71 +904,60 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                         overscrollBehavior: 'contain',
                     } as React.CSSProperties}
                 >
-                <div style={{ minWidth: `${totalDays * dayWidth + 200}px` }}>
+                <div style={{ minWidth: `${totalDays * dayWidth}px`, position: 'relative' }}>
                     {/* Date Headers */}
                     <div style={{
                         display: 'flex',
                         borderBottom: `1px solid ${theme.border}`,
                         position: 'sticky',
                         top: 0,
-                        backgroundColor: theme.surface,
+                        backgroundColor: theme.headerBg,
                         zIndex: 10,
                     }}>
-                        {/* Task Name Column Header */}
+                        {/* Gradient spacer - opaque on left, transparent at middle */}
                         <div style={{
                             width: '200px',
                             minWidth: '200px',
-                            padding: '12px',
-                            borderRight: `1px solid ${theme.border}`,
-                            fontWeight: 600,
-                            color: theme.text,
                             position: 'sticky',
                             left: 0,
-                            backgroundColor: theme.surface,
-                            zIndex: 11,
-                        }}>
-                            {''}
-                        </div>
+                            zIndex: 12,
+                            background: `linear-gradient(to right, ${theme.headerBg} 0%, transparent 75%)`,
+                            pointerEvents: 'none',
+                        }} />
 
-                        {/* Date Headers */}
-                        <div style={{ display: 'flex' }}>
-                            {days.map((day, index) => {
-                                const isToday = isSameDay(day, new Date());
-                                const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                        {/* All date headers */}
+                        {days.map((day, index) => {
+                            const isToday = isSameDay(day, new Date());
+                            const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                            const dayOfWeekJP = ['日', '月', '火', '水', '木', '金', '土'][day.getDay()];
 
-                                // Day of week abbreviations in Japanese
-                                const dayOfWeekJP = ['日', '月', '火', '水', '木', '金', '土'][day.getDay()];
-
-                                return (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            width: `${dayWidth}px`,
-                                            minWidth: `${dayWidth}px`,
-                                            padding: '4px 2px',
-                                            textAlign: 'center',
-                                            fontSize: '20px',
-                                            color: isToday ? theme.primary : isWeekend ? theme.textMuted : theme.text,
-                                            fontWeight: isToday ? 700 : 400,
-                                            borderRight: `1px solid ${theme.border}`,
-                                            backgroundColor: isToday ? `${theme.primary}20` : (day.getMonth() + 1) % 2 === 1 ? theme.monthOdd : theme.monthEven,
-                                        }}
-                                    >
-                                        {/* Day number */}
-                                        <div style={{ fontWeight: isToday ? 700 : 500, fontSize: '20px' }}>
-                                            {format(day, 'd')}
-                                        </div>
-                                        {/* Day of week */}
-                                        <div style={{
-                                            fontSize: '20px',
-                                            color: day.getDay() === 0 ? '#ef4444' : day.getDay() === 6 ? '#3b82f6' : theme.textMuted,
-                                        }}>
-                                            {dayOfWeekJP}
-                                        </div>
+                            return (
+                                <div
+                                    key={index}
+                                    style={{
+                                        width: `${dayWidth}px`,
+                                        minWidth: `${dayWidth}px`,
+                                        padding: '4px 2px',
+                                        textAlign: 'center',
+                                        fontSize: '20px',
+                                        color: isToday ? theme.primary : isWeekend ? theme.textMuted : theme.text,
+                                        fontWeight: isToday ? 700 : 400,
+                                        borderRight: `1px solid ${theme.border}`,
+                                        backgroundColor: isToday ? `${theme.primary}20` : (day.getMonth() + 1) % 2 === 1 ? theme.monthEven : theme.monthOdd,
+                                    }}
+                                >
+                                    <div style={{ fontWeight: isToday ? 700 : 500, fontSize: '20px' }}>
+                                        {format(day, 'd')}
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <div style={{
+                                        fontSize: '20px',
+                                        color: day.getDay() === 0 ? theme.sunday : day.getDay() === 6 ? theme.saturday : theme.textMuted,
+                                    }}>
+                                        {dayOfWeekJP}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Task Rows with month watermarks overlay */}
@@ -1025,7 +1023,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ tasks, onTaskClick, 
                                         justifyContent: 'center',
                                         fontSize: `${fontSize}px`,
                                         fontWeight: 900,
-                                        color: 'rgba(255, 255, 255, 0.04)',
+                                        color: theme.watermark,
                                         pointerEvents: 'none',
                                         userSelect: 'none',
                                         lineHeight: 1,

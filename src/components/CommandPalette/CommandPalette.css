@@ -4,13 +4,13 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    background: var(--color-overlay);
+    backdrop-filter: blur(var(--modal-backdrop-blur));
     z-index: 10000;
     display: flex;
     justify-content: center;
     padding-top: 15vh;
-    animation: fade-in 0.15s ease;
+    animation: fade-in var(--transition-fast) var(--transition-easing);
 }
 
 @keyframes fade-in {
@@ -25,12 +25,12 @@
 .command-palette {
     width: 100%;
     max-width: 600px;
-    background: var(--color-surface);
+    background: var(--color-surface-elevated);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
-    animation: slide-down 0.15s ease;
+    animation: slide-down var(--transition-fast) var(--transition-easing);
 }
 
 @keyframes slide-down {
@@ -63,7 +63,7 @@
     border: none;
     outline: none;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--color-text-main);
     font-family: var(--font-sans);
 }
 
@@ -72,9 +72,9 @@
 }
 
 .command-palette-kbd {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: var(--color-surface-hover);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-xs);
     padding: 0.15rem 0.4rem;
     font-size: 0.7rem;
     color: var(--color-text-muted);
@@ -85,7 +85,7 @@
     max-height: calc(100vh - 200px);
     overflow-y: auto;
     padding: 0.5rem 0.5rem 0;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-surface);
 }
 
 .command-palette-item {
@@ -95,16 +95,16 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     gap: 0.5rem;
-    transition: background-color 0.1s ease;
+    transition: background-color var(--transition-fast) var(--transition-easing);
 }
 
 .command-palette-item:hover,
 .command-palette-item.selected {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--color-surface-hover);
 }
 
 .command-palette-item.selected {
-    background: rgba(124, 58, 237, 0.2);
+    background: var(--color-primary-muted);
 }
 
 .command-palette-item-icon {
@@ -123,9 +123,9 @@
 }
 
 .command-palette-item-title {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--color-text-main);
     font-size: 0.85rem;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -149,30 +149,30 @@
 .command-palette-item-status {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    font-weight: 600;
+    border-radius: var(--radius-full);
+    font-weight: var(--font-weight-bold);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--letter-spacing-wide);
 }
 
 .command-palette-item-status.status-todo {
-    background: rgba(156, 163, 175, 0.2);
-    color: #9ca3af;
+    background: var(--color-status-todo-bg);
+    color: var(--color-status-todo);
 }
 
 .command-palette-item-status.status-standby {
-    background: rgba(251, 191, 36, 0.2);
-    color: #fbbf24;
+    background: var(--color-status-standby-bg);
+    color: var(--color-status-standby);
 }
 
 .command-palette-item-status.status-in-progress {
-    background: rgba(59, 130, 246, 0.2);
-    color: #3b82f6;
+    background: var(--color-status-progress-bg);
+    color: var(--color-status-progress);
 }
 
 .command-palette-item-status.status-done {
-    background: rgba(34, 197, 94, 0.2);
-    color: #22c55e;
+    background: var(--color-status-done-bg);
+    color: var(--color-status-done);
 }
 
 .command-palette-empty {

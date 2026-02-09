@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTemporalStore, useProjectStore } from '../../store/projectStore';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import type { Project } from '../../types';
 import './HistoryTimeline.css';
 
@@ -153,6 +154,10 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ expanded, onEx
         if (!isExpanded) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Priority check: パレット開なら全て無視（パレットが処理する）
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette') return;
+
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopImmediatePropagation(); // Stop other window listeners from receiving this event

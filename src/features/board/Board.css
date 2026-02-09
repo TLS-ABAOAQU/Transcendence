@@ -18,7 +18,7 @@
 }
 
 .back-btn:hover {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-main);
 }
 
 .add-task-form {
@@ -30,7 +30,7 @@
     background-color: transparent;
     border: none;
     outline: none;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-main);
     font-size: 1rem;
 }
 
@@ -51,8 +51,7 @@
     flex: 1;
     min-width: 0;
     height: calc(100vh - 113px);
-    background-color: rgba(30, 41, 59, 0.5);
-    /* Slate 800 / 0.5 */
+    background-color: var(--color-surface);
     border-radius: var(--radius-md);
     padding: 1rem;
     display: flex;
@@ -98,26 +97,33 @@
 }
 
 .board-container .task-list::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 9999px;
+    background-color: var(--color-border);
+    border-radius: var(--radius-full);
 }
 
 .board-container .task-list::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: var(--color-text-muted);
 }
 
 .task-card {
     cursor: grab;
     position: relative;
-    transition: border-color 0.2s;
+    transition: border-color var(--transition-fast) var(--transition-easing),
+                transform var(--transition-fast) var(--transition-easing),
+                box-shadow var(--transition-fast) var(--transition-easing);
     padding-left: 0.75rem !important;
     padding-right: 0.75rem !important;
     padding-top: 0.8em !important;
     padding-bottom: 0.8em !important;
+    /* Enhanced visibility - using theme-specific CSS variables */
+    background-color: var(--color-surface-elevated);
+    border: var(--task-card-border-width, 1px) solid var(--task-card-border-color, var(--color-border));
+    box-shadow: var(--task-card-shadow, var(--shadow-md));
 }
 
 .task-card:hover {
-    border-color: var(--color-text-muted);
+    border-color: var(--task-card-hover-border-color, var(--color-text-muted));
+    box-shadow: var(--task-card-hover-shadow, var(--shadow-lg));
 }
 
 .task-card:active {
@@ -236,7 +242,7 @@
     justify-content: space-between;
     margin-top: 1rem;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity var(--transition-fast);
 }
 
 .task-card:hover .task-actions {
@@ -249,7 +255,7 @@
 }
 
 .action-btn:hover {
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-main);
 }
 
 .action-spacer {
@@ -262,9 +268,9 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background-color: var(--color-primary);
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-inverse);
     font-size: 0.75rem;
     font-weight: 500;
 }
@@ -272,15 +278,17 @@
 .tag-chip button {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--color-text-inverse);
+    opacity: 0.7;
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
     padding: 0 2px;
+    transition: opacity var(--transition-fast);
 }
 
 .tag-chip button:hover {
-    color: rgba(255, 255, 255, 0.85);
+    opacity: 1;
 }
 
 /* Tag suggestion dropdown */
@@ -289,13 +297,13 @@
     top: 100%;
     left: 0;
     right: 0;
-    background-color: var(--color-surface);
+    background-color: var(--color-surface-elevated);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     max-height: 150px;
     overflow-y: auto;
     z-index: 100;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-lg);
 }
 
 .tag-suggestion-item {
@@ -328,7 +336,7 @@
     flex: 1;
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-main);
     font-size: 0.85rem;
     outline: none;
     padding: 2px 0;
@@ -346,9 +354,9 @@
     font-size: 16px;
     line-height: 1;
     padding: 2px 4px;
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity var(--transition-fast);
 }
 
 .checklist-item:hover .checklist-item-remove {
@@ -356,7 +364,7 @@
 }
 
 .checklist-item-remove:hover {
-    color: #f87171;
+    color: var(--color-error);
     background-color: rgba(239, 68, 68, 0.1);
 }
 
@@ -371,26 +379,26 @@
 .compact-text-toggle {
     font-size: 0.65rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.45);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.40);
-    border-radius: 20px;
+    color: var(--color-text-muted);
+    background: var(--color-surface-hover);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     padding: 2px 8px;
     cursor: pointer;
     user-select: none;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast) var(--transition-easing);
 }
 
 .compact-text-toggle:hover {
-    color: rgba(255, 255, 255, 0.7);
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.35);
+    color: var(--color-text-main);
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border-subtle);
 }
 
 .compact-text-toggle.active {
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.50);
+    color: var(--color-text-main);
+    background: var(--color-primary-muted);
+    border-color: var(--color-primary);
 }
 
 @keyframes toast-fade-in {
@@ -403,9 +411,9 @@
     display: inline-flex;
     align-items: center;
     padding: 1px 6px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background-color: var(--color-primary);
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text-inverse);
     font-size: 0.6rem;
     font-weight: 500;
 }

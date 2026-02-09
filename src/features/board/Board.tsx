@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useProjects } from '../../context/ProjectContext';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import {
     DndContext,
     pointerWithin,
@@ -197,10 +198,14 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
     const modalRedoRef = useRef(modalRedo);
     modalRedoRef.current = modalRedo;
 
-    // Handle modal-specific undo/redo (capture phase to intercept before global handler)
+    // Handle modal-specific undo/redo
     // Uses refs only — stable listener, never re-registered
     useEffect(() => {
         const handleModalUndoRedo = (e: KeyboardEvent) => {
+            // Priority check: パレット/履歴開なら無視
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette' || priority === 'history') return;
+
             if ((editingTaskRef.current || isAddingRef.current) && (e.metaKey || e.ctrlKey)) {
                 if (e.key === 'z' && !e.shiftKey) {
                     e.preventDefault();
@@ -213,14 +218,18 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
                 }
             }
         };
-        window.addEventListener('keydown', handleModalUndoRedo, true);
-        return () => window.removeEventListener('keydown', handleModalUndoRedo, true);
+        window.addEventListener('keydown', handleModalUndoRedo);
+        return () => window.removeEventListener('keydown', handleModalUndoRedo);
     }, []);
 
     // Board-level undo/redo toast — uses refs for stable listener
 
     useEffect(() => {
         const handleBoardUndoRedoToast = (e: KeyboardEvent) => {
+            // Priority check: パレット/ピッカー開なら無視
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette' || priority === 'picker') return;
+
             if (editingTaskRef.current || isAddingRef.current) return;
             if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
                 if (canUndoRef.current) showToast('Undo');
@@ -233,30 +242,41 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
     }, [showToast]);
 
     // ESC / Backspace → navigate back to dashboard
-    // Priority: 1. Launcher, 2. History, 3. Edit Modal, 4. Back to dashboard
+    // Uses getTopPriority() for consistent priority handling
     useEffect(() => {
         const handleBackNavigation = (e: KeyboardEvent) => {
             // Skip if modifier keys are held
             if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+            const priority = useKeyboardStore.getState().getTopPriority();
+
             if (e.key === 'Escape') {
-                // Priority 1: Command palette handles its own ESC
-                if (commandPaletteOpenRef.current) return;
-                // Priority 2: History panel
-                if (historyExpandedRef.current) return; // History handles its own ESC
-                // Priority 3: Edit modal
-                if (editingTaskRef.current || isAddingRef.current) return; // Modal handles its own ESC
-                // Priority 4: Back to dashboard
+                // パレット/履歴は自身でESCを処理
+                if (priority === 'palette' || priority === 'history') return;
+
+                // ピッカーを閉じる（一つずつ）
+                if (priority === 'picker') {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    if (showStartDatePickerRef.current) { setShowStartDatePicker(false); return; }
+                    if (showStartTimePickerRef.current) { setShowStartTimePicker(false); return; }
+                    if (showDueDatePickerRef.current) { setShowDueDatePicker(false); return; }
+                    if (showDueTimePickerRef.current) { setShowDueTimePicker(false); return; }
+                    return;
+                }
+
+                // モーダルは自身でESCを処理
+                if (priority === 'modal') return;
+
+                // 何も開いていない → ダッシュボードに戻る
                 e.preventDefault();
                 setActiveProject(null);
             }
 
             if (e.key === 'Backspace') {
-                // Skip if any modal/panel is open
-                if (commandPaletteOpenRef.current) return;
-                if (historyExpandedRef.current) return;
-                if (editingTaskRef.current || isAddingRef.current) return;
-                // Only trigger if no input/textarea is focused
+                // 何か開いているなら無視
+                if (priority !== 'none') return;
+                // 入力欄にフォーカスしていたら無視
                 const active = document.activeElement;
                 const isEditable = active instanceof HTMLInputElement ||
                     active instanceof HTMLTextAreaElement ||
@@ -683,8 +703,12 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
         if (!editingTask && !isAdding) return;
 
         const handleGlobalModalKeyDown = (e: KeyboardEvent) => {
+            const priority = useKeyboardStore.getState().getTopPriority();
+
             // Cmd+Enter / Ctrl+Enter / Cmd+S / Ctrl+S = Save
+            // パレット/履歴/ピッカー開なら無視
             if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
                 e.preventDefault();
                 if (editingTask) {
                     handleSaveTaskRef.current();
@@ -694,9 +718,10 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
                 return;
             }
             // Escape = Close with confirmation if unsaved changes
-            // Priority: Launcher > History > Modal, so skip if history is open
+            // パレット/履歴/ピッカーは自身で処理するのでここでは無視
             if (e.key === 'Escape') {
-                if (historyExpandedRef.current) return; // Let history panel handle ESC first
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
+                // モーダルを閉じる
                 e.preventDefault();
                 e.stopPropagation();
                 if (editingTask) closeTaskModalWithConfirmRef.current();
@@ -704,7 +729,9 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
                 return;
             }
             // Cmd+Backspace (Mac) or Delete (Windows) = Delete task (edit mode only)
+            // パレット/履歴/ピッカー開なら無視
             if ((e.metaKey && e.key === 'Backspace') || e.key === 'Delete') {
+                if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
                 const active = document.activeElement;
                 const isEditable = active instanceof HTMLInputElement ||
                     active instanceof HTMLTextAreaElement ||
@@ -732,6 +759,10 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
 
         const handleFocusTrap = (e: KeyboardEvent) => {
             if (e.key !== 'Tab') return;
+            // Priority check: パレット/履歴/ピッカー開なら無視（通常のTab動作）
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette' || priority === 'history' || priority === 'picker') return;
+
             if (!modalContentRef.current) return;
 
             const focusables = Array.from(modalContentRef.current.querySelectorAll<HTMLElement>(
@@ -1311,6 +1342,39 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
     const historyExpandedRef = useRef(historyExpanded);
     historyExpandedRef.current = historyExpanded;
 
+    // Sync state to KeyboardStore for centralized shortcut handling
+    const { setModalOpen, setPickerOpen, setHistoryExpanded: setKbHistoryExpanded, setActiveScreen } = useKeyboardStore();
+
+    useEffect(() => {
+        setActiveScreen('board');
+    }, [setActiveScreen]);
+
+    useEffect(() => {
+        setModalOpen(!!editingTask || isAdding);
+    }, [editingTask, isAdding, setModalOpen]);
+
+    useEffect(() => {
+        setPickerOpen(showStartDatePicker || showStartTimePicker || showDueDatePicker || showDueTimePicker);
+    }, [showStartDatePicker, showStartTimePicker, showDueDatePicker, showDueTimePicker, setPickerOpen]);
+
+    useEffect(() => {
+        setKbHistoryExpanded(historyExpanded);
+    }, [historyExpanded, setKbHistoryExpanded]);
+
+    // Additional refs for Cmd+Enter keyboard handler (to avoid stale closure)
+    // Note: editingTaskRef, isAddingRef, commandPaletteOpenRef are already defined above
+    const dateConfirmModalRef = useRef(dateConfirmModal);
+    const showStartDatePickerRef = useRef(showStartDatePicker);
+    const showStartTimePickerRef = useRef(showStartTimePicker);
+    const showDueDatePickerRef = useRef(showDueDatePicker);
+    const showDueTimePickerRef = useRef(showDueTimePicker);
+
+    dateConfirmModalRef.current = dateConfirmModal;
+    showStartDatePickerRef.current = showStartDatePicker;
+    showStartTimePickerRef.current = showStartTimePicker;
+    showDueDatePickerRef.current = showDueDatePicker;
+    showDueTimePickerRef.current = showDueTimePicker;
+
     // Command palette handler
     useEffect(() => {
         if (commandRef) {
@@ -1374,6 +1438,26 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
             }
         };
     }, [commandRef, viewMode]);
+
+    // Cmd+N to open new task modal (only when nothing is open)
+    // Uses KeyboardStore for priority check
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!((e.metaKey || e.ctrlKey) && e.key === 'n')) return;
+
+            const priority = useKeyboardStore.getState().getTopPriority();
+            // Only execute when nothing is open
+            if (priority !== 'none') return;
+
+            // Also check dateConfirmModal (not tracked in store)
+            if (dateConfirmModalRef.current) return;
+
+            e.preventDefault();
+            openNewTaskModal();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     return (
         <DndContext
@@ -2112,21 +2196,21 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
                                                                         <>
                                                                             {col.id === 'in-progress' && (
                                                                                 <>
-                                                                                    <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                    <div style={{ fontSize: '0.80rem', color: 'var(--color-card-date-text)', marginBottom: '2px', fontFamily: 'monospace' }}>
                                                                                         Start: {task.startDate || '未定'}
                                                                                     </div>
-                                                                                    <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                    <div style={{ fontSize: '0.80rem', color: 'var(--color-card-date-text)', marginBottom: '2px', fontFamily: 'monospace' }}>
                                                                                         Due: {task.dueDate || '未定'}
                                                                                     </div>
                                                                                 </>
                                                                             )}
                                                                             {col.id === 'standby' && (
-                                                                                <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                <div style={{ fontSize: '0.80rem', color: 'var(--color-card-date-text)', marginBottom: '2px', fontFamily: 'monospace' }}>
                                                                                     Start: {task.startDate || '未定'}
                                                                                 </div>
                                                                             )}
                                                                             {col.id === 'todo' && task.startDate && (
-                                                                                <div style={{ fontSize: '0.80rem', color: '#FFFFFF', marginBottom: '2px', fontFamily: 'monospace' }}>
+                                                                                <div style={{ fontSize: '0.80rem', color: 'var(--color-card-date-text)', marginBottom: '2px', fontFamily: 'monospace' }}>
                                                                                     Start: {task.startDate}
                                                                                 </div>
                                                                             )}

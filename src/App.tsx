@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useProjects } from './context/ProjectContext';
+import { useKeyboardStore } from './store/keyboardStore';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { Board } from './features/board/Board';
 import { CommandPalette } from './components/CommandPalette';
@@ -9,6 +10,12 @@ function App() {
   const { projects, activeProjectId, setActiveProject, undo, redo, canUndo, canRedo } = useProjects();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'board' | 'calendar' | 'timeline'>('board');
+
+  // Sync commandPaletteOpen to KeyboardStore
+  const { setCommandPaletteOpen: setKbPaletteOpen } = useKeyboardStore();
+  useEffect(() => {
+    setKbPaletteOpen(commandPaletteOpen);
+  }, [commandPaletteOpen, setKbPaletteOpen]);
 
   // Refs to pass commands to child components
   const boardCommandRef = useRef<((cmd: string, task?: Task) => void) | null>(null);
@@ -125,6 +132,7 @@ function App() {
         onProjectClick={handleProjectClick}
         onCommand={handleCommand}
       />
+
     </div>
   );
 }

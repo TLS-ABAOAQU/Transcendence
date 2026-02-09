@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Project, Task } from '../../types';
+import { useTheme, THEME_LIST, THEME_META } from '../../context/ThemeContext';
 import './CommandPalette.css';
 
 interface CommandPaletteProps {
@@ -25,7 +26,8 @@ type ResultItem =
     | { type: 'task'; task: Task; projectId: string; projectName: string }
     | { type: 'project'; project: Project }
     | { type: 'command'; command: Command }
-    | { type: 'keyword'; keyword: string; label: string; icon: string };
+    | { type: 'keyword'; keyword: string; label: string; icon: string }
+    | { type: 'theme'; themeId: string; label: string; icon: string };
 
 const ALL_COMMANDS: Command[] = [
     // Create
@@ -52,6 +54,7 @@ const ALL_COMMANDS: Command[] = [
     { id: 'clear-history', title: 'Clear History', icon: '🗑️', category: 'view' },
     // Other
     { id: 'starred', title: 'Starred', icon: '⭐', category: 'view' },
+    { id: 'theme', title: 'Theme', icon: '🎨', category: 'view' },
 ];
 
 // Search keywords for suggestions
@@ -281,14 +284,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [showThemes, setShowThemes] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
+    const { theme: currentTheme, setTheme } = useTheme();
 
     // Filter commands based on current context
     const availableCommands = useMemo(() => {
         return ALL_COMMANDS.filter(cmd => {
-            // History commands - always available
-            if (['history', 'clear-history'].includes(cmd.id)) {
+            // History and theme commands - always available
+            if (['history', 'clear-history', 'theme'].includes(cmd.id)) {
                 return true;
             }
 
@@ -345,12 +350,30 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         if (isOpen) {
             setQuery('');
             setSelectedIndex(0);
+            setShowThemes(false);
             setTimeout(() => inputRef.current?.focus(), 0);
         }
     }, [isOpen]);
 
     // Filter results based on query
     const results = useMemo((): ResultItem[] => {
+        // Show theme list when in theme selection mode
+        if (showThemes) {
+            const q = query.toLowerCase().trim();
+            return THEME_LIST
+                .filter(themeId => {
+                    if (!q) return true;
+                    const meta = THEME_META[themeId];
+                    return themeId.includes(q) || meta.label.toLowerCase().includes(q);
+                })
+                .map(themeId => ({
+                    type: 'theme' as const,
+                    themeId,
+                    label: `${THEME_META[themeId].label}${themeId === currentTheme ? ' ✓' : ''}`,
+                    icon: THEME_META[themeId].icon,
+                }));
+        }
+
         const q = query.toLowerCase().trim();
         const items: ResultItem[] = [];
 
@@ -361,6 +384,31 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     items.push({ type: 'command', command: cmd });
                 }
             });
+
+            // Direct theme search (searchable by name or aliases)
+            THEME_LIST.forEach(themeId => {
+                const meta = THEME_META[themeId];
+                const searchTerms = [
+                    themeId,
+                    meta.label.toLowerCase(),
+                    ...(themeId === 'midnight-purple' ? ['dark', 'purple', 'ミッドナイト'] : []),
+                    ...(themeId === 'sakura' ? ['quartz'] : []),
+                    ...(themeId === 'sepia' ? ['目に優しい', 'eye', 'warm'] : []),
+                    ...(themeId === 'moss-garden' ? ['moss', 'garden', '苔', '庭'] : []),
+                    ...(themeId === 'candy-pop' ? ['candy', 'pop', 'colorful', 'キャンディ', 'カラフル'] : []),
+                    ...(themeId === 'slate-storm' ? ['slate', 'storm', 'スレート', 'モダン'] : []),
+                    ...(themeId === 'dusty-rose' ? ['dusty', 'feminine', 'ダスティ', 'フェミニン'] : []),
+                ];
+                if (searchTerms.some(term => term.toLowerCase().includes(q))) {
+                    items.push({
+                        type: 'theme',
+                        themeId,
+                        label: `${meta.label}${themeId === currentTheme ? ' ✓' : ''}`,
+                        icon: meta.icon,
+                    });
+                }
+            });
+
             // Date helpers
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
@@ -502,7 +550,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         }
 
         return items.slice(0, 20); // Limit results
-    }, [query, projects, activeProjectId, availableCommands]);
+    }, [query, projects, activeProjectId, availableCommands, showThemes, currentTheme]);
 
     // Reset selected index when results change
     useEffect(() => {
@@ -525,7 +573,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             setQuery(item.keyword);
             return; // Don't close modal
         }
+        if (item.type === 'theme') {
+            // Apply theme and stay in theme selection mode
+            setTheme(item.themeId as typeof currentTheme);
+            // Keep showThemes true so user can try other themes
+            setQuery('');
+            return; // Don't close modal
+        }
         if (item.type === 'command') {
+            // Special handling for theme command
+            if (item.command.id === 'theme') {
+                setShowThemes(true);
+                setQuery('');
+                setSelectedIndex(0);
+                return; // Don't close modal
+            }
             onCommand(item.command.id);
         } else if (item.type === 'project') {
             onProjectClick(item.project.id);
@@ -533,7 +595,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             onTaskClick(item.projectId, item.task);
         }
         onClose();
-    }, [onCommand, onProjectClick, onTaskClick, onClose]);
+    }, [onCommand, onProjectClick, onTaskClick, onClose, setTheme, currentTheme]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         // IME変換中は無視（日本語入力の確定用Enter）
@@ -555,9 +617,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         } else if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
-            onClose();
+            if (showThemes) {
+                setShowThemes(false);
+                setQuery('');
+                setSelectedIndex(0);
+            } else {
+                onClose();
+            }
         }
-    }, [results, selectedIndex, executeItem, onClose]);
+    }, [results, selectedIndex, executeItem, onClose, showThemes]);
 
     if (!isOpen) return null;
 
@@ -569,12 +637,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 onKeyDown={handleKeyDown}
             >
                 <div className="command-palette-input-wrapper">
-                    <span className="command-palette-icon">🔍</span>
+                    <span className="command-palette-icon">{showThemes ? '🎨' : '🔍'}</span>
                     <input
                         ref={inputRef}
                         type="text"
                         className="command-palette-input"
-                        placeholder="Search..."
+                        placeholder={showThemes ? "Select theme..." : "Search..."}
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         autoComplete="off"
@@ -595,13 +663,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                         ? `project-${item.project.id}`
                                         : item.type === 'keyword'
                                         ? `kw-${item.keyword}`
+                                        : item.type === 'theme'
+                                        ? `theme-${item.themeId}`
                                         : `cmd-${item.command.id}`
                                 }
                                 className={`command-palette-item ${index === selectedIndex ? 'selected' : ''}`}
                                 onClick={() => executeItem(item)}
-                                onMouseEnter={() => setSelectedIndex(index)}
                             >
-                                {item.type === 'keyword' ? (
+                                {item.type === 'theme' ? (
+                                    <>
+                                        <span className="command-palette-item-icon">{item.icon}</span>
+                                        <span className="command-palette-item-title">{item.label}</span>
+                                    </>
+                                ) : item.type === 'keyword' ? (
                                     <>
                                         <span className="command-palette-item-icon">{item.icon}</span>
                                         <span className="command-palette-item-title">{item.keyword}</span>

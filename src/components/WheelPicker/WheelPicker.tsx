@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import { useKeyboardStore } from '../../store/keyboardStore';
 import './WheelPicker.css';
 
 interface WheelColumnItem {
@@ -173,23 +174,25 @@ export const WheelPicker: React.FC<WheelPickerProps> = ({
     onCancel,
     title,
 }) => {
-    // Handle keyboard events (with stopPropagation to avoid affecting parent modals)
+    // Handle Enter key only - ESC is handled by parent components (Board/Dashboard)
+    // to maintain correct priority: CommandPalette > History > Pickers > Modal
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                onCancel();
-            } else if (e.key === 'Enter') {
+            // Priority check: パレット開なら無視（パレットがEnterを処理）
+            const priority = useKeyboardStore.getState().getTopPriority();
+            if (priority === 'palette') return;
+
+            if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
                 onConfirm();
             }
+            // ESC is handled by parent components
         };
 
-        window.addEventListener('keydown', handleKeyDown, true); // Use capture phase
-        return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [onConfirm, onCancel]);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onConfirm]);
 
     return (
         <>
