@@ -51,7 +51,6 @@ const ALL_COMMANDS: Command[] = [
     { id: 'view+', title: 'View +', icon: '🔍', category: 'view' },
     // History
     { id: 'history', title: 'History', icon: '📜', category: 'view' },
-    { id: 'clear-history', title: 'Clear History', icon: '🗑️', category: 'view' },
     // Other
     { id: 'starred', title: 'Starred', icon: '⭐', category: 'view' },
     { id: 'theme', title: 'Theme', icon: '🎨', category: 'view' },
@@ -293,7 +292,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     const availableCommands = useMemo(() => {
         return ALL_COMMANDS.filter(cmd => {
             // History and theme commands - always available
-            if (['history', 'clear-history', 'theme'].includes(cmd.id)) {
+            if (['history', 'theme'].includes(cmd.id)) {
                 return true;
             }
 
@@ -603,6 +602,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             return;
         }
 
+        // Cmd+1〜0 で項目を直接選択（1=0番目, ..., 9=8番目, 0=9番目）
+        if ((e.metaKey || e.ctrlKey) && e.key >= '0' && e.key <= '9') {
+            e.preventDefault();
+            const num = parseInt(e.key);
+            const index = num === 0 ? 9 : num - 1;
+            if (results[index]) {
+                executeItem(results[index]);
+            }
+            return;
+        }
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             setSelectedIndex(prev => (prev + 1) % results.length);
@@ -714,6 +724,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                             {item.task.status}
                                         </span>
                                     </>
+                                )}
+                                {index < 10 && (
+                                    <kbd className="command-palette-item-shortcut">
+                                        ⌘{index === 9 ? '0' : index + 1}
+                                    </kbd>
                                 )}
                             </div>
                         ))}

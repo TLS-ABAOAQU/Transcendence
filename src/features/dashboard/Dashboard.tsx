@@ -295,9 +295,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ commandRef, commandPalette
                     case 'history':
                         setHistoryExpanded(prev => !prev);
                         break;
-                    case 'clear-history':
-                        // HistoryTimeline handles this internally
-                        break;
                 }
             };
         }

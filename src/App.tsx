@@ -60,7 +60,6 @@ function App() {
         break;
       // History panel commands - works on both dashboard and board
       case 'history':
-      case 'clear-history':
         if (activeProjectId && boardCommandRef.current) {
           boardCommandRef.current(command);
         } else if (!activeProjectId && dashboardCommandRef.current) {

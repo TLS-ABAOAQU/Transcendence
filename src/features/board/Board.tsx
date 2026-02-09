@@ -1426,9 +1426,6 @@ export const Board: React.FC<BoardProps> = ({ commandRef, commandPaletteOpen, on
                     case 'history':
                         setHistoryExpanded(prev => !prev);
                         break;
-                    case 'clear-history':
-                        // Will be handled by HistoryTimeline itself
-                        break;
                 }
             };
         }
